@@ -1,0 +1,100 @@
+# Sirai Configuration Sample
+# This file should be placed at ~/.sirai/config.yaml
+
+# Language Model (LLM) Configuration
+llm:
+  # Local LLM Configuration (e.g., Ollama)
+  local:
+    enabled: true                      # Set to false to disable local LLM
+    provider: ollama                   # Local LLM provider (currently only 'ollama' is supported)
+    model: command-r                   # Model to use (e.g., 'llama2', 'mistral', etc.)
+    baseUrl: http://localhost:11434    # Base URL for Ollama API
+
+  # Remote LLM Configuration (e.g., OpenAI)
+  remote:
+    enabled: true                      # Set to false to disable remote LLM
+    provider: openai                   # Remote LLM provider ('openai' for GPT models)
+    model: gpt-4                       # Model to use (e.g., 'gpt-4', 'gpt-3.5-turbo', etc.)
+    apiKey: your_api_key_here          # Your OpenAI API key
+
+# Example configurations for LangChain-based implementations
+# Uncomment and modify as needed
+
+# OpenAI with LangChain
+# llm:
+#   remote:
+#     enabled: true
+#     provider: openai
+#     model: gpt-4
+#     apiKey: your_api_key_here
+#     useLangChain: true               # Enable LangChain-based implementation
+#     organization: your_org_id        # Optional: Your OpenAI organization ID
+
+# Claude with LangChain
+# llm:
+#   remote:
+#     enabled: true
+#     provider: claude
+#     model: claude-3-opus-20240229    # Available models: claude-3-opus-20240229, claude-3-sonnet-20240229, etc.
+#     apiKey: your_api_key_here
+#     useLangChain: true               # Enable LangChain-based implementation
+
+# Ollama with LangChain
+# llm:
+#   local:
+#     enabled: true
+#     provider: ollama
+#     model: command-r                 # Any model available in your Ollama installation
+#     baseUrl: http://localhost:11434
+#     useLangChain: true               # Enable LangChain-based implementation
+
+# Execution Configuration
+execution:
+  parallel: false                      # Whether to execute tasks in parallel
+  maxParallel: 2                       # Maximum number of parallel tasks
+
+# Output Configuration
+output:
+  colorEnabled: true                   # Enable colored output
+  syntaxHighlighting: true             # Enable syntax highlighting for code
+
+# Prompts Configuration
+prompts:
+  directory: ~/.sirai/prompts           # Directory to store saved prompts
+
+# Chat Configuration
+chat:
+  saveHistory: true                    # Whether to save chat history between sessions
+  maxHistoryMessages: 20               # Maximum number of messages to keep in history
+
+# Task Planning Configuration
+taskPlanning:
+  enabled: true                        # Enable task planning component
+
+  # Complexity assessment configuration
+  complexity:
+    # Thresholds for complexity levels
+    thresholds:
+      medium: 40                       # Score threshold for medium complexity
+      high: 70                         # Score threshold for high complexity
+
+    # Weights for different factors in complexity assessment
+    weights:
+      taskType: 0.2                    # Weight for task type factor
+      scopeSize: 0.3                   # Weight for code scope size factor
+      dependenciesCount: 0.2           # Weight for dependencies count factor
+      technologyComplexity: 0.2        # Weight for technology stack complexity factor
+      priorSuccessRate: 0.1            # Weight for prior success rate factor
+
+  # LLM strategy selection configuration
+  llmStrategy:
+    # Thresholds for different LLM types
+    thresholds:
+      remote: 70                       # Score threshold for remote LLM
+      hybrid: 40                       # Score threshold for hybrid approach
+      local: 0                         # Score threshold for local LLM
+
+    # Override settings for specific conditions
+    overrides:
+      critical: remote                 # Always use remote LLM for critical tasks
+      simple: local                    # Always use local LLM for simple tasks

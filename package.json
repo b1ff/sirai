@@ -1,0 +1,73 @@
+{
+  "name": "sirai",
+  "version": "1.0.0",
+  "description": "Development Helper CLI Tool for interactive code generation with local and remote LLMs",
+  "main": "dist/index.js",
+  "bin": {
+    "sirai": "./dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "OPEN_AI_KEY=dummy node dist/index.js",
+    "dev": "ts-node --esm src/index.ts",
+    "build": "tsc",
+    "test": "mocha --require ts-node/register test/**/*.test.ts"
+  },
+  "keywords": [
+    "cli",
+    "development",
+    "llm",
+    "ai",
+    "code-generation",
+    "ollama",
+    "openai",
+    "claude"
+  ],
+  "author": "Eugene Moroz <sirai@emfwd.me>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/b1ff/sirai.git"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "@langchain/anthropic": "^0.3.15",
+    "@langchain/community": "^0.3.36",
+    "@langchain/ollama": "^0.2.0",
+    "@langchain/openai": "^0.4.7",
+    "axios": "^1.6.2",
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "dotenv": "^16.3.1",
+    "fs-extra": "^11.2.0",
+    "glob": "^10.3.10",
+    "highlight.js": "^11.9.0",
+    "inquirer": "^9.2.12",
+    "js-yaml": "^4.1.0",
+    "langchain": "^0.3.19",
+    "marked": "^11.0.0",
+    "marked-terminal": "^6.2.0",
+    "ollama": "^0.4.1",
+    "openai": "^4.20.1",
+    "ora": "^7.0.1",
+    "uuid": "^9.0.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.11",
+    "@types/fs-extra": "^11.0.4",
+    "@types/inquirer": "^9.0.7",
+    "@types/js-yaml": "^4.0.9",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.10.4",
+    "@types/sinon": "^17.0.2",
+    "@types/uuid": "^9.0.7",
+    "chai": "^4.3.10",
+    "mocha": "^10.2.0",
+    "sinon": "^17.0.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  }
+}
