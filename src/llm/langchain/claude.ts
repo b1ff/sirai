@@ -101,7 +101,7 @@ export class ClaudeLangChainLLM extends LangChainLLM {
       };
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Claude generation failed: ${error.message}`);
+        throw new Error(`Claude generation failed: ${JSON.stringify(error, null, 2)}`);
       }
       throw new Error('Claude generation failed: Unknown error');
     }

@@ -106,15 +106,36 @@ export class TaskExecutor {
 
       // Create a task-specific prompt
       const taskPrompt = `
-You are working on the following task:
-"""
+You are a precise task executor. Your job is to implement exactly what has been planned in the task specification, without deviation or creative additions unless explicitly required.
+
+<task_specification>
 ${subtask.taskSpecification}
-"""
+</task_specification>
 
-Your current working directory is: '${process.cwd()}'
+## EXECUTION CONTEXT
+- Current working directory: '${process.cwd()}'
+- Task ID: ${subtask.id}
 
-Please complete this specific task. 
-Write file using tool rather than output. Keep output only summary of what was done.
+## EXECUTION INSTRUCTIONS
+1. READ the task specification completely before beginning implementation
+2. FOLLOW all implementation steps in the exact order specified
+3. ADHERE strictly to any file paths, module names, and interface definitions provided
+4. IMPLEMENT code consistent with the existing project patterns and styles
+5. VERIFY your implementation against the provided testing criteria
+
+## IMPLEMENTATION GUIDELINES
+- USE the provided file system tools to read, write, or modify files
+- DO NOT output code that should be written to files - use the appropriate tool instead
+- MAINTAIN the exact interfaces specified to ensure correct integration
+- RESPECT any dependencies mentioned in the task specification
+- IF parts of the specification are ambiguous, make your best judgment based on the context provided and note your assumptions
+
+## OUTPUT REQUIREMENTS
+- Provide a CONCISE summary of what you implemented
+- CONFIRM that all testing criteria have been met
+- LIST any files created or modified
+- NOTE any assumptions or decisions you made if the specification had ambiguities
+- Do NOT include code in your response that was written to files
 
 ${basePrompt}
 `;

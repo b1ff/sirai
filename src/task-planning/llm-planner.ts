@@ -31,7 +31,7 @@ export class LLMPlanner {
   private config: LLMPlannerConfig;
   private appConfig: AppConfig;
   private llm: BaseLLM | null = null;
-  private debug: boolean = true;
+  private debug: boolean = false;
 
   /**
    * Constructor
@@ -44,9 +44,9 @@ export class LLMPlanner {
       maxContextSize: config.maxContextSize || DEFAULT_CONFIG.maxContextSize,
       chunkSize: config.chunkSize || DEFAULT_CONFIG.chunkSize,
       preferredProvider: config.preferredProvider || DEFAULT_CONFIG.preferredProvider,
-      debug: true// config.debug || false
+      debug: config.debug || false
     };
-    // this.debug = this.config.debug || false;
+    this.debug = this.config.debug || false;
   }
 
   /**
@@ -169,35 +169,74 @@ export class LLMPlanner {
 
     // 3. Create prompt for LLM
     const prompt = `
-You are a task planning assistant. Your job is to analyze a user request and create a plan to accomplish user goal.
+You are a task planning assistant. Your job is to analyze a user request and create a detailed, executable plan to accomplish their goal.
 
 <user_request>
 ${request}
 </user_request>
 
 PROJECT CONTEXT:
-You can use the provided tools to explore the project and gather context.
-
 Current Directory: ${contextProfile.currentDirectory}
 
-Based on the above information, use tools to gather context, and based on the context create a task plan by breaking down the request into subtasks. You must derive minimal amount of subtasks to accomplish the user goal.
+## CONTEXT GATHERING PHASE
+First, use the provided tools to explore the project and gather essential context. Focus on:
+1. Project structure and key files
+2. Dependencies and their versions
+3. Existing code patterns and architecture
+4. Configuration files and settings
 
-For each subtask, provide a clear specification, a complexity level (low, medium, high), and dependencies (which subtasks must be completed before this one). 
-Also provide an execution order for the subtasks.
+## TASK PLANNING PHASE
+Based on the gathered context, create a precise implementation plan by breaking down the request into executable subtasks.
 
-Each task and subtask must be actionable by LLM, either gather SPECIFIC information or perform a SPECIFIC action, like edit a file, create a file, etc.
+For each subtask specification, use the following structured template:
 
-Graining should be based on the tasks that LLM can perform. Do not make very chatty tasks. You can create plan from one sub-task or multiple sub-tasks.
+<subtask_specification>
+SUBTASK: [Unique ID e.g., subtask-1]
+Title: [Descriptive Task Title]
 
-Decide on task whether it can be executed by LLM, which has limited input and limited output. 
-If task consists of multiple components, files or modules you can crate a specification for every module or file in subtask. Ensure that public interfaces are communicated so that everthing is wired together correctly at the end.
-Include in the task specification any other important information. Specification should be like you explaining for very novice developer. Include in the subtask specification details from the gathered context, so the implementation does not need to gather context again.
-Include into subtask specification full paths to the files, directories, name of modules, etc. so the LLM can use it directly.
-If there is a single file that can be modified for the one taks - you must ensure that it is only one subtask related to that file and no more. If file edits should be done in sequencing, i.e. each modification depends on other sub-tasks, you can split it. For example if task is to write tests on the existing module - which results in the creation of the test file - writing all tests in that file should be strictly one sub-task.
+**Goal:** [Clear statement of what this subtask should accomplish]
 
-IMPORTANT: After creating the plan, you MUST use the extract_plan tool to save the plan. Pass the plan directly as JSON to the tool. Do not pass the plan as a string or try to format it yourself.
+**Context:**
+- **Files:** [Full paths to files that need to be created or modified]
+- **Modules:** [Names of relevant modules]
+- **Interfaces:** [Description of public interfaces to implement or use]
 
-After plan is saved successfully, write a summary of your understanding of the task.
+**Requirements:**
+1. [Detailed requirement 1]
+2. [Detailed requirement 2]
+3. [Additional requirements as needed]
+
+**Input:** [What the subtask starts with]
+
+**Output:** [Expected deliverable]
+
+**Implementation Steps:**
+1. [Step 1: Specific instruction]
+2. [Step 2: Specific instruction]
+3. [Additional steps as needed]
+</subtask_specification>
+
+## GUIDELINES FOR EFFECTIVE SUBTASKS:
+
+1. ATOMIC & FOCUSED: Each subtask should be self-contained and accomplish exactly one logical action (create one file, modify one component, etc.). Never split a file creation or modification across multiple subtasks unless absolutely necessary.
+
+2. COMPLETE & STANDALONE: Include all necessary context and details in each subtask specification. The implementing agent will not have access to the full context you have.
+
+3. PRECISE PATHS: Always include full paths to files, exact module names, and complete interface specifications.
+
+4. IMPLEMENTATION DETAIL: Provide enough technical guidance that an AI without context can implement correctly.
+
+5. SIZE CONSTRAINTS: Keep specifications detailed but concise, optimized for context limitations.
+
+6. CODE PATTERNS: Include examples of existing code patterns when relevant to ensure consistency.
+
+7. INTERFACE DEFINITIONS: Clearly define how components will interact with each other.
+
+8. EXECUTION ORDER: Create a logical sequence for implementation.
+
+After creating the plan, use the extract_plan tool to save it. 
+
+After the plan is saved successfully, provide a concise summary of your understanding of the task and the approach you've outlined.
 `;
 
     // 4. Generate task plan using LLM with tools

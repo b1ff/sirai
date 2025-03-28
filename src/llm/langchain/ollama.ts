@@ -204,7 +204,7 @@ export class OllamaLangChainLLM extends LangChainLLM {
 
                             // Add tool call success information to the chunk callback
                             onChunk({
-                                content: `\n[Ollama] Tool ${toolCall.name} executed successfully`,
+                                content: `\n[Ollama] Tool ${toolCall.name} executed successfully with args ${JSON.stringify(toolCall.args, null, 2)}`,
                                 isComplete: false
                             });
 

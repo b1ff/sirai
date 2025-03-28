@@ -78,7 +78,7 @@ export class LLMStrategySelector {
     if (complexityScore >= this.config.thresholds.remote) {
       return LLMType.REMOTE;
     } else if (complexityScore >= this.config.thresholds.hybrid) {
-      return LLMType.HYBRID;
+      return LLMType.LOCAL;
     } else {
       return LLMType.LOCAL;
     }
