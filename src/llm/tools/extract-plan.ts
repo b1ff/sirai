@@ -66,34 +66,16 @@ export class ExtractPlanTool extends BaseTool {
    * @returns The saved plan as a JSON string
    */
   async execute(args: Record<string, unknown>): Promise<string> {
-    try {
-      // Parse and validate the plan
-      const plan = this.parameters.parse(args).plan;
+    // Parse and validate the plan
+    const plan = this.parameters.parse(args).plan;
 
-      // Save the plan
-      this.savedPlan = plan;
+    // Save the plan
+    this.savedPlan = plan;
 
-      // Return the plan as a JSON string
-      return JSON.stringify({
-        result: 'plan is saved, your mission is complete.'
-      }, null, 2);
-    } catch (error) {
-      // Handle Zod validation errors specially
-      if (error && typeof error === 'object' && 'errors' in error) {
-        const zodError = error as { errors: Array<{ path: string[], message: string }> };
-
-        return JSON.stringify({
-            result: 'plan is not saved, please fix the errors',
-            error: zodError.errors
-        })
-      }
-
-      if (error instanceof Error) {
-        throw new Error(`Failed to save plan: ${error.message}`);
-      }
-
-      throw new Error(`Failed to save plan: ${String(error)}`);
-    }
+    // Return the plan as a JSON string
+    return JSON.stringify({
+      result: 'plan is saved, your mission is complete.'
+    }, null, 2);
   }
 
   /**

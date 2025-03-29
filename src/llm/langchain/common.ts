@@ -123,7 +123,7 @@ function formatError(error: any): string {
     // If it's an object with a message property, use that
     if (error && typeof error === 'object') {
       if (error.message) {
-        return error.message;
+        return error.constructor.name + ':' + error.message;
       }
 
       // If it has an output property that's an object or string, format that

@@ -171,16 +171,8 @@ export class EditFileTool extends BaseTool {
         newLinesCount: newContentBetweenLines.split('\n').length
       });
     } catch (error) {
-      if (error instanceof Error) {
-        return JSON.stringify({
-          status: 'error',
-          message: `Failed to edit file: ${error.message}`
-        });
-      }
-      return JSON.stringify({
-        status: 'error',
-        message: 'Failed to edit file: Unknown error'
-      });
+      // Use the common error handling method from the base class
+      return this.handleToolError(error);
     }
   }
 }

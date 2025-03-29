@@ -83,10 +83,8 @@ export class ListDirectoriesTool extends BaseTool {
 
       return `Found ${directories.length} directories:\n${directories.join('\n')}`;
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to list directories: ${error.message}`);
-      }
-      throw new Error('Failed to list directories: Unknown error');
+      // Use the common error handling method from the base class
+      return this.handleToolError(error);
     }
   }
 
@@ -116,7 +114,7 @@ export class ListDirectoriesTool extends BaseTool {
       if (entry.isDirectory()) {
         const fullPath = path.join(dir, entry.name);
         const relativePath = path.relative(this.workingDir, fullPath);
-        
+
         // Skip .git directory
         if (relativePath.startsWith('.git') || relativePath.startsWith('./.git')) {
           continue;

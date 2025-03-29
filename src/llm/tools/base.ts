@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { tool } from "@langchain/core/tools";
 import { Tool } from '../langchain/base.js';
+import { ZodError } from 'zod';
 
 import { resolve } from 'node:path';
 
@@ -35,36 +36,50 @@ export abstract class BaseTool implements Tool {
    */
   abstract execute(args: Record<string, unknown>): Promise<string>;
 
+  /**
+   * Handle errors from tool execution
+   * @param error - The error to handle
+   * @returns A JSON string with the error details
+   */
+  protected handleToolError(error: unknown): string {
+    // Check for Zod validation errors first
+    if (error instanceof ZodError) {
+      return handleZodError(error);
+    }
+
+    // Create a more detailed error object for other types of errors
+    const errorObj: Record<string, unknown> = {
+      status: 'error',
+    };
+
+    if (error instanceof Error) {
+      errorObj.message = `Failed to execute tool: ${error.message}`;
+      // Include stack trace in development environments
+      if (process.env.NODE_ENV === 'development' && error.stack) {
+        errorObj.stack = error.stack;
+      }
+      // Include any additional properties from the error
+      Object.entries(error).forEach(([key, value]) => {
+        if (key !== 'message' && key !== 'stack') {
+          errorObj[key] = value;
+        }
+      });
+    } else if (error && typeof error === 'object') {
+      errorObj.message = 'Failed to execute tool';
+      errorObj.error = error;
+    } else {
+      errorObj.message = `Failed to execute tool: ${String(error)}`;
+    }
+
+    return JSON.stringify(errorObj, null, 2);
+  }
+
   toLangChainTool() {
     return tool(async (args) => {
       try {
         return await this.execute(args);
       } catch (error) {
-        // Create a more detailed error object
-        const errorObj: Record<string, unknown> = {
-          status: 'error',
-        };
-
-        if (error instanceof Error) {
-          errorObj.message = `Failed to execute tool: ${error.message}`;
-          // Include stack trace in development environments
-          if (process.env.NODE_ENV === 'development' && error.stack) {
-            errorObj.stack = error.stack;
-          }
-          // Include any additional properties from the error
-          Object.entries(error).forEach(([key, value]) => {
-            if (key !== 'message' && key !== 'stack') {
-              errorObj[key] = value;
-            }
-          });
-        } else if (error && typeof error === 'object') {
-          errorObj.message = 'Failed to execute tool';
-          errorObj.error = error;
-        } else {
-          errorObj.message = `Failed to execute tool: ${String(error)}`;
-        }
-
-        return JSON.stringify(errorObj, null, 2);
+        return this.handleToolError(error);
       }
     }, {
       name: this.name,
@@ -97,4 +112,28 @@ export interface TrustedCommandsConfig {
    * List of trusted commands
    */
   trustedCommands: string[];
+}
+
+/**
+ * Handle Zod validation errors
+ * @param error - The error to handle
+ * @returns A JSON string with the error details
+ */
+export function handleZodError(error: unknown): string {
+  if (error instanceof ZodError) {
+    return JSON.stringify({
+      result: 'error: validation failed, please fix the errors',
+      error: error.errors
+    }, null, 2);
+  }
+
+  if (error instanceof Error) {
+    return JSON.stringify({
+      result: `error: ${error.message}`
+    }, null, 2);
+  }
+
+  return JSON.stringify({
+    result: `error: ${String(error)}`
+  }, null, 2);
 }

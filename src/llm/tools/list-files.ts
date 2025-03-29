@@ -221,10 +221,8 @@ export class ListFilesTool extends BaseTool {
 
       return `Found ${files.length} files:\n${files.join('\n')}`;
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to list files: ${error.message}`);
-      }
-      throw new Error('Failed to list files: Unknown error');
+      // Use the common error handling method from the base class
+      return this.handleToolError(error);
     }
   }
 

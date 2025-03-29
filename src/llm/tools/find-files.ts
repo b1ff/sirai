@@ -149,10 +149,8 @@ export class FindFilesTool extends BaseTool {
 
       return `Found ${files.length} files:\n${files.join('\n')}`;
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to find files: ${error.message}`);
-      }
-      throw new Error('Failed to find files: Unknown error');
+      // Use the common error handling method from the base class
+      return this.handleToolError(error);
     }
   }
 }

@@ -28,7 +28,7 @@ export class RunProcessTool extends BaseTool {
      * The command to execute
      */
     command: z.string().describe('The command to execute'),
-    
+
     /**
      * The timeout in milliseconds
      * @default 30000 (30 seconds)
@@ -83,10 +83,10 @@ export class RunProcessTool extends BaseTool {
     try {
       // Parse and validate arguments
       const { command, timeout } = this.parameters.parse(args);
-      
+
       // Check if the command is trusted
       const isTrusted = this.isTrustedCommand(command);
-      
+
       // If the command is not trusted, prompt for approval
       if (!isTrusted) {
         const approved = await this.promptForApproval(command);
@@ -94,7 +94,7 @@ export class RunProcessTool extends BaseTool {
           return 'Command execution was not approved by the user.';
         }
       }
-      
+
       // Execute the command with timeout
       const { stdout, stderr } = await Promise.race([
         execAsync(command),
@@ -104,18 +104,16 @@ export class RunProcessTool extends BaseTool {
           }, timeout);
         })
       ]);
-      
+
       // Return the output
       if (stderr) {
         return `Command executed with warnings:\n${stdout}\n\nWarnings:\n${stderr}`;
       }
-      
+
       return stdout;
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to execute command: ${error.message}`);
-      }
-      throw new Error('Failed to execute command: Unknown error');
+      // Use the common error handling method from the base class
+      return this.handleToolError(error);
     }
   }
 }

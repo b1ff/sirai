@@ -30,19 +30,19 @@ export class WriteFileTool extends BaseTool {
      * The path to the file to write
      */
     path: z.string().describe('The path to the file to write'),
-    
+
     /**
      * The content to write to the file
      */
     content: z.string().describe('The content to write to the file'),
-    
+
     /**
      * Whether to overwrite the file if it exists
      * @default true
      */
     overwrite: z.boolean().optional().default(true)
       .describe('Whether to overwrite the file if it exists'),
-    
+
     /**
      * The encoding to use when writing the file
      * @default 'utf-8'
@@ -112,10 +112,10 @@ export class WriteFileTool extends BaseTool {
     try {
       // Parse and validate arguments
       const { path: filePath, content, overwrite, encoding } = this.parameters.parse(args);
-      
+
       // Ensure the file is in the working directory
       const resolvedPath = ensurePathInWorkingDir(filePath, this.workingDir);
-      
+
       // Check if the file exists
       let fileExists = false;
       try {
@@ -124,28 +124,28 @@ export class WriteFileTool extends BaseTool {
       } catch (error) {
         // File doesn't exist, which is fine
       }
-      
+
       // Check if we need to prompt for approval
       let needsApproval = true;
-      
+
       // Check if this is a git repository
       const isGitRepo = await this.isGitRepository(this.workingDir);
-      
+
       if (isGitRepo) {
         // Check if there are uncommitted changes
         const hasChanges = await this.hasUncommittedChanges(this.workingDir);
-        
+
         // Skip permission prompt if repository has no uncommitted changes
         if (!hasChanges) {
           needsApproval = false;
         }
       }
-      
+
       // If the file exists and we're not overwriting, throw an error
       if (fileExists && !overwrite) {
         throw new Error(`File ${filePath} already exists and overwrite is set to false`);
       }
-      
+
       // If we need approval, prompt for it
       if (needsApproval) {
         const approved = await this.promptForApproval(filePath, content);
@@ -153,20 +153,18 @@ export class WriteFileTool extends BaseTool {
           return `File write operation to ${filePath} was not approved by the user.`;
         }
       }
-      
+
       // Create the directory if it doesn't exist
       const directory = path.dirname(resolvedPath);
       await fs.mkdir(directory, { recursive: true });
-      
+
       // Write the file
       await fs.writeFile(resolvedPath, content, { encoding: encoding as BufferEncoding });
-      
+
       return `Successfully wrote ${content.length} characters to ${filePath}`;
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to write file: ${error.message}`);
-      }
-      throw new Error('Failed to write file: Unknown error');
+      // Use the common error handling method from the base class
+      return this.handleToolError(error);
     }
   }
 }

@@ -93,6 +93,16 @@ export class TaskExecutor {
   }
 
   /**
+   * Adds line numbers to file content in a way that LLMs can understand
+   * @param content - The file content
+   * @returns The file content with line numbers
+   */
+  private addLineNumbers(content: string): string {
+    const lines = content.split('\n');
+    return lines.map((line, index) => `${index + 1}:${line}`).join('\n');
+  }
+
+  /**
    * Executes a list of subtasks
    * @param subtasks - The subtasks to execute
    * @param executionOrder - The execution order of subtasks
@@ -129,7 +139,8 @@ export class TaskExecutor {
         for (const file of subtask.filesToRead) {
           try {
             const content = await this.readFileContent(file.path, projectDir);
-            fileContents += `file: ${file.path}\n\`\`\`${file.syntax}\n${content}\n\`\`\`\n\n`;
+            const contentWithLineNumbers = this.addLineNumbers(content);
+            fileContents += `file: ${file.path}\n\`\`\`${file.syntax}\n${contentWithLineNumbers}\n\`\`\`\n\n`;
           } catch (error) {
             console.error(chalk.red(`Error reading file ${file.path}: ${error instanceof Error ? error.message : 'Unknown error'}`));
           }
@@ -139,6 +150,7 @@ export class TaskExecutor {
       // Create a task-specific prompt
       const taskPrompt = `
 ${fileContents}
+
 You are a precise task executor. Your job is to implement exactly what has been planned in the task specification, without deviation or creative additions unless explicitly required.
 
 <task_specification>
