@@ -76,12 +76,6 @@ export class TaskExecutor {
     }
   }
 
-  /**
-   * Reads the content of a file
-   * @param filePath - The path to the file
-   * @param projectDir - The project directory
-   * @returns The content of the file
-   */
   private async readFileContent(filePath: string, projectDir: string): Promise<string> {
     try {
       const fullPath = path.isAbsolute(filePath) ? filePath : path.join(projectDir, filePath);
@@ -98,8 +92,9 @@ export class TaskExecutor {
    * @returns The file content with line numbers
    */
   private addLineNumbers(content: string): string {
-    const lines = content.split('\n');
-    return lines.map((line, index) => `${index + 1}:${line}`).join('\n');
+    return content;
+    // const lines = content.split('\n');
+    // return lines.map((line, index) => `${index + 1}:${line}`).join('\n');
   }
 
   /**
@@ -140,7 +135,8 @@ export class TaskExecutor {
           try {
             const content = await this.readFileContent(file.path, projectDir);
             const contentWithLineNumbers = this.addLineNumbers(content);
-            fileContents += `file: ${file.path}\n\`\`\`${file.syntax}\n${contentWithLineNumbers}\n\`\`\`\n\n`;
+            // fileContents += `file: ${file.path}\n\`\`\`${file.syntax}\n${contentWithLineNumbers}\n\`\`\`\n\n`;
+            fileContents += `<file path="${file.path}" syntax="${file.syntax}">\n${contentWithLineNumbers}\n</file>\n`;
           } catch (error) {
             console.error(chalk.red(`Error reading file ${file.path}: ${error instanceof Error ? error.message : 'Unknown error'}`));
           }
@@ -157,9 +153,7 @@ You are a precise task executor. Your job is to implement exactly what has been 
 ${subtask.taskSpecification}
 </task_specification>
 
-## EXECUTION CONTEXT
-- Current working directory: '${process.cwd()}'
-- Task ID: ${subtask.id}
+Current working directory: '${process.cwd()}'
 
 ## EXECUTION INSTRUCTIONS
 1. READ the task specification completely before beginning implementation
@@ -169,19 +163,14 @@ ${subtask.taskSpecification}
 5. VERIFY your implementation against the provided testing criteria
 
 ## IMPLEMENTATION GUIDELINES
-- USE the provided file system tools to read, write, or modify files
-- DO NOT output code that should be written to files - use the appropriate tool instead
+- USE the provided file system tools to write, or modify files
+- ALWAYS choose to call tools to make modifications - do not output outside tools calls, it won't be used
 - MAINTAIN the exact interfaces specified to ensure correct integration
 - RESPECT any dependencies mentioned in the task specification
 - IF parts of the specification are ambiguous, make your best judgment based on the context provided and note your assumptions
-
-## OUTPUT REQUIREMENTS
-- Provide a CONCISE summary of what you implemented
-- CONFIRM that all testing criteria have been met
-- LIST any files created or modified
-- NOTE any assumptions or decisions you made if the specification had ambiguities
-- Do NOT include code in your response that was written to files
 `;
+      
+      console.log(taskPrompt);
 
       const success = await this.executeTask(taskPrompt, llm);
       if (!success) {

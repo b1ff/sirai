@@ -67,7 +67,7 @@ function formatError(error: any): string {
  * @returns The formatted tool call
  */
 export function formatToolCall(toolCall: any, res?: any, error?: any): string {
-  let truncateLimit = 1600;
+  let truncateLimit = 200;
   const toolName = chalk.bold.blue(toolCall.name);
   const args = JSON.stringify(toolCall.args || {}, null, 2);
   let output = `\n${chalk.cyan('┌─')} Tool Call: ${toolName}\n`;

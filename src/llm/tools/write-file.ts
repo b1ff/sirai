@@ -20,7 +20,7 @@ export class WriteFileTool extends BaseTool {
   /**
    * The description of the tool
    */
-  description = 'Write content to a file in the file system. The file must be in the working directory.';
+  description = 'Write content to a file in the file system. The file must be in the working directory. Overrides are not allowed so it must be used only for new files.';
 
   /**
    * The parameters of the tool
