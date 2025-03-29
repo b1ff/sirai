@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BaseTool } from './tools/index.js';
 
 /**
  * Interface for LLM configuration
@@ -11,6 +12,7 @@ export interface LLMConfig {
  * Interface for LLM generation options
  */
 export interface LLMOptions {
+  tools?: BaseTool[];
   [key: string]: any;
 }
 

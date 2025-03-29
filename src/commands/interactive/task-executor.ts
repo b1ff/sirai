@@ -4,7 +4,7 @@ import inquirer from 'inquirer';
 import { BaseLLM } from '../../llm/base.js';
 import { CodeRenderer } from '../../utils/code-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
-import { ListFilesTool, ReadFileTool, WriteFileTool, ListDirectoriesTool, EditFileTool } from '../../llm/tools/index.js';
+import { ReadFileTool, WriteFileTool, EditFileTool } from '../../llm/tools/index.js';
 
 /**
  * Class that executes tasks using the LLM
@@ -48,8 +48,6 @@ export class TaskExecutor {
       }, {
         // Enable function calling
         tools: [
-          new ListFilesTool(projectDir),
-          new ListDirectoriesTool(projectDir),
           new ReadFileTool(projectDir),
           new EditFileTool(projectDir),
           new WriteFileTool(projectDir, async (filePath, content) => {
@@ -81,14 +79,14 @@ export class TaskExecutor {
    * @param subtasks - The subtasks to execute
    * @param executionOrder - The execution order of subtasks
    * @param llm - The LLM to use
-   * @param basePrompt - The base prompt
+   * @param compiledHistory - The base prompt
    * @returns Whether all tasks were executed successfully
    */
   public async executeSubtasks(
     subtasks: Array<{ id: string; taskSpecification: string }>,
     executionOrder: string[],
     llm: BaseLLM,
-    basePrompt: string
+    compiledHistory: string
   ): Promise<boolean> {
     console.log(chalk.cyan('\n--- Executing Tasks ---'));
 
@@ -136,11 +134,8 @@ ${subtask.taskSpecification}
 - LIST any files created or modified
 - NOTE any assumptions or decisions you made if the specification had ambiguities
 - Do NOT include code in your response that was written to files
-
-${basePrompt}
 `;
 
-      // Execute the task
       const success = await this.executeTask(taskPrompt, llm);
       if (!success) {
         return false;

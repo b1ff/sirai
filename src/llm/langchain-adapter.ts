@@ -1,5 +1,5 @@
 import { BaseLLM, LLMConfig, LLMOptions, ChunkCallback, StructuredLLMOutput } from './base.js';
-import { LangChainLLM, Tool } from './langchain/base.js';
+import { LangChainLLM } from './langchain/base.js';
 import { LangChainFactory } from './langchain/factory.js';
 import { z } from 'zod';
 import { BaseTool } from './tools/index.js';
@@ -32,11 +32,7 @@ export class LangChainAdapter extends BaseLLM {
    * @returns The generated response
    */
   async generate(prompt: string, options?: LLMOptions): Promise<string> {
-    const genOptions = {
-      ...options,
-      tools: options?.tools?.map((tool: BaseTool) => tool.toLangChainTool()),
-    }
-    const response = await this.langChainLLM.generateResponse(prompt, genOptions);
+    const response = await this.langChainLLM.generateResponse(prompt, this.adaptOptions(options));
     return response.content;
   }
 
@@ -62,7 +58,7 @@ export class LangChainAdapter extends BaseLLM {
           onChunk(chunk.content);
         }
       },
-      options
+      this.adaptOptions(options)
     );
 
     return fullResponse;
@@ -80,35 +76,14 @@ export class LangChainAdapter extends BaseLLM {
     schema: z.ZodType<T>,
     options?: LLMOptions
   ): Promise<T> {
-    return await this.langChainLLM.generateStructuredOutput<T>(prompt, schema, options);
+    return await this.langChainLLM.generateStructuredOutput<T>(prompt, schema, this.adaptOptions(options));
   }
 
-  /**
-   * Calls a tool
-   * @param prompt - The prompt to send to the LLM
-   * @param tools - The tools to make available
-   * @param options - Additional options
-   * @returns The tool call result
-   */
-  async callTool(
-    prompt: string,
-    tools: BaseTool[],
-    options?: LLMOptions
-  ): Promise<{ toolName: string; arguments: Record<string, unknown> }> {
-    const response = await this.langChainLLM.generateResponse(prompt, {
+  private adaptOptions(options: LLMOptions | undefined | { tools?: BaseTool[] | undefined; [p: string]: any }) {
+    return {
       ...options,
-      tools
-    });
-
-    if (response.toolCalls && response.toolCalls.length > 0) {
-      const toolCall = response.toolCalls[0];
-      return {
-        toolName: toolCall.name,
-        arguments: toolCall.arguments as Record<string, unknown>
-      };
-    }
-
-    throw new Error('No tool was called');
+      tools: options?.tools?.map(t => t.toLangChainTool())
+    };
   }
 
   /**

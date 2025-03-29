@@ -84,31 +84,29 @@ export class ClaudeLangChainLLM extends LangChainLLM {
       // Prepare messages
       const messages = prepareMessages(prompt, options);
 
-      let claudeWithTools = claude.bind({
-        tools: options.tools ?? [],
+      // Bind tools to the model
+      const claudeWithTools = claude.bind({
+        tools: (options.tools ?? []),
         tool_choice: 'auto',
       });
 
-      const response = await this.runLLmToolsLoop(messages, options, claudeWithTools as any)
+      // Use the common runLLmToolsLoop method
+      const response = await runLLmToolsLoop(claudeWithTools as any, messages, options);
 
       // Format response content
       const content = formatResponseContent(response);
 
       return {
-        content: content,
+        content,
         toolCalls: [],
         usage: undefined
       };
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Claude generation failed: ${JSON.stringify(error, null, 2)}`);
+        throw new Error(`Claude generation failed: ${error.message}`);
       }
       throw new Error('Claude generation failed: Unknown error');
     }
-  }
-
-  private async runLLmToolsLoop(messages: any[], options: LLMOptions, claudeWithTools: ChatAnthropic) {
-    return await runLLmToolsLoop(claudeWithTools, messages, options);
   }
 
   /**
@@ -136,13 +134,16 @@ export class ClaudeLangChainLLM extends LangChainLLM {
       // Prepare messages
       const messages = prepareMessages(prompt, options);
 
-      // Generate streaming response
-      let fullContent = '';
-      let allToolCalls: any[] = [];
-
+      // Bind tools to the model
       const claudeWithTools = claude.bindTools(options.tools || []);
 
-      fullContent = await this.streamWithToolCalls(claudeWithTools as ChatAnthropic, messages, onChunk, options, allToolCalls, fullContent);
+      // Use the base class's handleStreamWithToolCalls method
+      const { content, toolCalls } = await this.handleStreamWithToolCalls(
+        claudeWithTools as ChatAnthropic,
+        messages,
+        onChunk,
+        options
+      );
 
       // Call the chunk callback with isComplete = true
       onChunk({
@@ -151,12 +152,8 @@ export class ClaudeLangChainLLM extends LangChainLLM {
       });
 
       return {
-        content: fullContent,
-        toolCalls: allToolCalls.map(tc => ({
-          name: String(tc.name),
-          arguments: tc.args || {},
-          id: String(tc.id || `tool-${Date.now()}`)
-        }))
+        content,
+        toolCalls
       };
     } catch (error) {
       if (error instanceof Error) {
@@ -166,94 +163,6 @@ export class ClaudeLangChainLLM extends LangChainLLM {
     }
   }
 
-  private async streamWithToolCalls(claudeWithTools: ChatAnthropic, messages: any[], onChunk: (chunk: LLMChunk) => void, options: LLMOptions, allToolCalls: any[], fullContent: string): Promise<string> {
-    const stream = await claudeWithTools.stream(messages);
-    let toolsCalled = false;
-    for await (const chunk of stream) {
-      // Check if the chunk contains a tool call
-      if (chunk.tool_calls && chunk.tool_calls.length > 0) {
-        // Process tool calls in the chunk
-        const toolCalls = chunk.tool_calls;
-
-        // Add tool call information to the chunk callback
-        onChunk({
-          content: `\n[Claude] Processing ${toolCalls.length} tool call(s) from chunk`,
-          isComplete: false
-        });
-
-        // Process each tool call
-        for (const toolCall of toolCalls) {
-          // Find the tool
-          const tool = options.tools?.find(t => t.name === toolCall.name);
-          if (tool) {
-            try {
-              // Cast to DynamicTool and execute
-              const dynamicTool = tool as unknown as DynamicTool;
-              const result = await dynamicTool.invoke(toolCall);
-
-              // Add tool call success information to the chunk callback
-              onChunk({
-                content: `\n[Claude] Tool ${toolCall.name} executed successfully`,
-                isComplete: false
-              });
-
-              // Store the result
-              const processedToolCall = {
-                ...toolCall,
-                result
-              };
-
-              allToolCalls.push(processedToolCall);
-
-              // Add the tool call result to the messages
-              messages.push(result);
-            } catch (toolError) {
-              // Add tool call error information to the chunk callback
-              onChunk({
-                content: `\n[Claude] Tool ${toolCall.name} execution failed: ${toolError instanceof Error ? toolError.message : String(toolError)}`,
-                isComplete: false
-              });
-
-              // Store the error
-              const processedToolCall = {
-                ...toolCall,
-                error: toolError instanceof Error ? toolError.message : String(toolError)
-              };
-
-              allToolCalls.push(processedToolCall);
-
-              // Add the tool call error to the messages
-              messages.push(processedToolCall);
-            }
-          } else {
-            // Add tool not found information to the chunk callback
-            onChunk({
-              content: `\n[Claude] Tool ${toolCall.name} not found`,
-              isComplete: false
-            });
-          }
-        }
-        toolsCalled = true;
-      }
-
-      // Format chunk content
-      const content = formatResponseContent(chunk);
-
-      fullContent += content;
-
-      // Call the chunk callback
-      onChunk({
-        content,
-        isComplete: false
-      });
-    }
-
-    if (!toolsCalled) {
-      return fullContent;
-    }
-
-    return await this.streamWithToolCalls(claudeWithTools, messages, onChunk, options, allToolCalls, fullContent);
-  }
 
   /**
    * Generates a structured output based on a schema

@@ -36,8 +36,8 @@ export class EditFileTool extends BaseTool {
     /**
      * The starting line content
      */
-    startLineContent: z.string()
-      .describe('The expected content of the starting line for validation'),
+    startLineCurrentContent: z.string()
+      .describe('The exact current content of the starting line, used for validation that file has not changed before edit'),
 
     /**
      * The ending line number
@@ -48,13 +48,13 @@ export class EditFileTool extends BaseTool {
     /**
      * The ending line content
      */
-    endLineContent: z.string()
-      .describe('The expected content of the ending line for validation'),
+    endLineCurrentContent: z.string()
+      .describe('The exact current content of the ending line, used for validation that file has not changed before edit'),
 
     /**
      * The new content to replace the lines between start and end (inclusive)
      */
-    newContent: z.string()
+    newContentBetweenLines: z.string()
       .describe('The new content to replace the lines between start and end (inclusive)')
   });
 
@@ -83,10 +83,10 @@ export class EditFileTool extends BaseTool {
       const { 
         file, 
         startLineNumber, 
-        startLineContent, 
+        startLineCurrentContent,
         endLineNumber, 
-        endLineContent, 
-        newContent 
+        endLineCurrentContent,
+        newContentBetweenLines
       } = this.parameters.parse(args);
 
       // Ensure the file is in the working directory
@@ -134,21 +134,21 @@ export class EditFileTool extends BaseTool {
       const actualStartLine = lines[startLineNumber - 1]; // Convert to 0-based index
       const actualEndLine = lines[endLineNumber - 1]; // Convert to 0-based index
 
-      if (actualStartLine !== startLineContent) {
+      if (actualStartLine !== startLineCurrentContent) {
         return JSON.stringify({
           status: 'error',
           message: 'Start line content does not match',
-          expectedContent: startLineContent,
+          expectedContent: startLineCurrentContent,
           actualContent: actualStartLine,
           instruction: 'Please re-call this tool with the actual content of the start line'
         });
       }
 
-      if (actualEndLine !== endLineContent) {
+      if (actualEndLine !== endLineCurrentContent) {
         return JSON.stringify({
           status: 'error',
           message: 'End line content does not match',
-          expectedContent: endLineContent,
+          expectedContent: endLineCurrentContent,
           actualContent: actualEndLine,
           instruction: 'Please re-call this tool with the actual content of the end line'
         });
@@ -157,7 +157,7 @@ export class EditFileTool extends BaseTool {
       // All validations passed, update the file
       const newLines = [
         ...lines.slice(0, startLineNumber - 1),
-        ...newContent.split('\n'),
+        ...newContentBetweenLines.split('\n'),
         ...lines.slice(endLineNumber)
       ];
 
@@ -168,7 +168,7 @@ export class EditFileTool extends BaseTool {
         status: 'success',
         message: `File ${file} updated successfully`,
         linesReplaced: endLineNumber - startLineNumber + 1,
-        newLinesCount: newContent.split('\n').length
+        newLinesCount: newContentBetweenLines.split('\n').length
       });
     } catch (error) {
       if (error instanceof Error) {

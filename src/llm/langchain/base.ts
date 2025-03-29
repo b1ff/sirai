@@ -1,6 +1,6 @@
 import { BaseLanguageModel } from '@langchain/core/language_models/base';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { StructuredTool } from '@langchain/core/tools';
+import { DynamicTool, StructuredTool } from '@langchain/core/tools';
 import { JsonOutputParser } from '@langchain/core/output_parsers';
 import { z } from 'zod';
 import { BaseTool } from '../tools/index.js';
@@ -20,15 +20,26 @@ export interface LLMConfig {
 }
 
 /**
+ * Interface for a chat message
+ */
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system' | 'tool' | 'function';
+  content: string;
+  toolName?: string;
+  functionName?: string;
+}
+
+/**
  * Interface for LLM options
  */
 export interface LLMOptions {
   temperature?: number;
   maxTokens?: number;
-  tools?: BaseTool[];
+  tools?: DynamicTool[];
   systemPrompt?: string;
   model?: string;
   responseFormat?: ResponseFormat;
+  chatHistory?: ChatMessage[];
 }
 
 /**
@@ -155,26 +166,123 @@ export abstract class LangChainLLM {
   ): Promise<T>;
 
   /**
-   * Converts a Tool to a LangChain StructuredTool
-   * @param tool - The tool to convert
-   * @returns The LangChain StructuredTool
+   * Handles streaming with tool calls (base implementation)
+   * @param model - The LLM model
+   * @param messages - The messages to send to the LLM
+   * @param onChunk - Callback function for each chunk of the response
+   * @param options - Additional options
+   * @returns The full content of the response
    */
-  protected convertToolToLangChainTool(tool: Tool): StructuredTool {
-    // Create a tool object with the required properties
-    const toolObj = {
-      name: tool.name,
-      description: tool.description,
-      schema: tool.parameters,
-      func: async (args: Record<string, unknown>) => {
-        if ('execute' in tool && typeof tool.execute === 'function') {
-          return await tool.execute(args);
-        }
-        throw new Error(`Tool ${tool.name} does not have an execute method`);
-      }
-    };
+  protected async handleStreamWithToolCalls(
+    model: BaseChatModel,
+    messages: any[],
+    onChunk: ChunkCallback,
+    options: LLMOptions = {}
+  ): Promise<{ content: string; toolCalls: ToolCall[] }> {
+    // Import necessary functions dynamically to avoid circular dependencies
+    const { formatResponseContent, formatToolCall } = await import('./common.js');
 
-    // Cast to unknown first, then to StructuredTool to avoid TypeScript errors
-    return toolObj as unknown as StructuredTool;
+    const stream = await model.stream(messages);
+    let fullContent = '';
+    let allToolCalls: ToolCall[] = [];
+    let toolsCalled = false;
+
+    for await (const chunk of stream) {
+      // Check if the chunk contains tool calls
+      if (chunk.tool_calls && chunk.tool_calls.length > 0) {
+        toolsCalled = true;
+        const toolCalls = chunk.tool_calls;
+
+        // Notify about tool calls
+        onChunk({
+          content: `\n🔧 Processing ${toolCalls.length} tool call(s)...\n`,
+          isComplete: false
+        });
+
+        // Process each tool call
+        for (const toolCall of toolCalls) {
+          const tool = options.tools?.find(t => t.name === toolCall.name);
+
+          if (!tool) {
+            onChunk({
+              content: formatToolCall(toolCall, undefined, `Tool "${toolCall.name}" not found`),
+              isComplete: false
+            });
+            continue;
+          }
+
+          try {
+            // Execute the tool
+            onChunk({
+              content: `Executing tool: ${toolCall.name}...`,
+              isComplete: false
+            });
+
+            const result = await tool.invoke(toolCall);
+
+            // Add tool call success information
+            onChunk({
+              content: formatToolCall(toolCall, result),
+              isComplete: false
+            });
+
+            // Store the result
+            const processedToolCall = {
+              ...toolCall,
+              id: toolCall.id || `tool-${Date.now()}`,
+              arguments: toolCall.args || {}
+            };
+
+            allToolCalls.push(processedToolCall);
+
+            // Add the tool result to messages
+            messages.push(result);
+          } catch (error) {
+            // Add tool call error information
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            onChunk({
+              content: formatToolCall(toolCall, undefined, errorMessage),
+              isComplete: false
+            });
+
+            // Store the error
+            const processedToolCall = {
+              ...toolCall,
+              id: toolCall.id || `tool-${Date.now()}`,
+              arguments: toolCall.args || {}
+            };
+
+            allToolCalls.push(processedToolCall);
+          }
+        }
+      }
+
+      // Format chunk content
+      const content = formatResponseContent(chunk);
+      fullContent += content;
+
+      // Call the chunk callback
+      if (content) {
+        onChunk({
+          content,
+          isComplete: false
+        });
+      }
+    }
+
+    // If tools were called, continue the conversation
+    if (toolsCalled) {
+      onChunk({
+        content: `\n🤖 Continuing conversation with tool results...\n`,
+        isComplete: false
+      });
+
+      const result = await this.handleStreamWithToolCalls(model, messages, onChunk, options);
+      fullContent += result.content;
+      allToolCalls = [...allToolCalls, ...result.toolCalls];
+    }
+
+    return { content: fullContent, toolCalls: allToolCalls };
   }
 
 

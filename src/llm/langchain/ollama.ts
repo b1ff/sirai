@@ -64,17 +64,6 @@ export class OllamaLangChainLLM extends LangChainLLM {
     }
 
     /**
-     * Run the LLM tools loop
-     * @param messages - The messages to send to the LLM
-     * @param options - Additional options
-     * @param ollamaWithTools - The Ollama model with tools
-     * @returns The final response
-     */
-    private async runLLmToolsLoop(messages: any[], options: LLMOptions, ollamaWithTools: ChatOllama) {
-        return await runLLmToolsLoop(ollamaWithTools, messages, options);
-    }
-
-    /**
      * Generates a response to a prompt
      * @param prompt - The prompt to send to the LLM
      * @param options - Additional options
@@ -95,18 +84,18 @@ export class OllamaLangChainLLM extends LangChainLLM {
             const messages = prepareMessages(prompt, options);
 
             // Bind tools to the model
-            let ollamaWithTools = ollama.bind({
+            const ollamaWithTools = ollama.bind({
                 tools: options.tools ?? [],
             });
 
-            // Generate response with tools
-            const response = await this.runLLmToolsLoop(messages, options, ollamaWithTools as any);
+            // Use the common runLLmToolsLoop method
+            const response = await runLLmToolsLoop(ollamaWithTools as any, messages, options);
 
             // Format response content
             const content = formatResponseContent(response);
 
             return {
-                content: content,
+                content,
                 toolCalls: []
             };
         } catch (error) {
@@ -142,16 +131,18 @@ export class OllamaLangChainLLM extends LangChainLLM {
             // Prepare messages
             const messages = prepareMessages(prompt, options);
 
-            // Generate streaming response
-            let fullContent = '';
-            let allToolCalls: any[] = [];
-
+            // Bind tools to the model
             const ollamaWithTools = ollama.bind({
-                tools: (options.tools || []).map((t: BaseTool) => t.toLangChainTool()),
+                tools: (options.tools || []),
             });
 
-            fullContent = await this.streamWithToolCalls(ollamaWithTools as ChatOllama, messages, onChunk, options, allToolCalls, fullContent);
-
+            // Use the base class's handleStreamWithToolCalls method
+            const { content, toolCalls } = await this.handleStreamWithToolCalls(
+                ollamaWithTools as ChatOllama,
+                messages,
+                onChunk,
+                options
+            );
 
             // Call the chunk callback with isComplete = true
             onChunk({
@@ -159,14 +150,9 @@ export class OllamaLangChainLLM extends LangChainLLM {
                 isComplete: true
             });
 
-
             return {
-                content: fullContent,
-                toolCalls: allToolCalls.map(tc => ({
-                    name: String(tc.name),
-                    arguments: tc.args || {},
-                    id: String(tc.id || `tool-${Date.now()}`)
-                }))
+                content,
+                toolCalls
             };
         } catch (error) {
             if (error instanceof Error) {
@@ -174,96 +160,6 @@ export class OllamaLangChainLLM extends LangChainLLM {
             }
             throw new Error('Ollama streaming failed: Unknown error');
         }
-    }
-
-
-    private async streamWithToolCalls(ollamaWithTools: ChatOllama, messages: any[], onChunk: (chunk: LLMChunk) => void, options: LLMOptions, allToolCalls: any[], fullContent: string): Promise<string> {
-        const stream = await ollamaWithTools.stream(messages);
-        let toolsCalled = false;
-        for await (const chunk of stream) {
-            // Check if the chunk contains a tool call
-            if (chunk.tool_calls && chunk.tool_calls.length > 0) {
-                // Process tool calls in the chunk
-                const toolCalls = chunk.tool_calls;
-
-                // Add tool call information to the chunk callback
-                onChunk({
-                    content: `\n[Ollama] Processing ${toolCalls.length} tool call(s) from chunk`,
-                    isComplete: false
-                });
-
-                // Process each tool call
-                for (const toolCall of toolCalls) {
-                    // Find the tool
-                    const tool = options.tools?.find(t => t.name === toolCall.name);
-                    if (tool) {
-                        try {
-                            // Cast to DynamicTool and execute
-                            const dynamicTool = tool.toLangChainTool();
-                            const result = await dynamicTool.invoke(toolCall);
-
-                            // Add tool call success information to the chunk callback
-                            onChunk({
-                                content: `\n[Ollama] Tool ${toolCall.name} executed successfully with args ${JSON.stringify(toolCall.args, null, 2)}`,
-                                isComplete: false
-                            });
-
-                            // Store the result
-                            const processedToolCall = {
-                                ...toolCall,
-                                result
-                            };
-
-                            allToolCalls.push(processedToolCall);
-
-                            // Add the tool call result to the messages
-                            messages.push(result);
-                        } catch (toolError) {
-                            // Add tool call error information to the chunk callback
-                            onChunk({
-                                content: `\n[Ollama] Tool ${toolCall.name} execution failed: ${toolError instanceof Error ? toolError.message : String(toolError)}`,
-                                isComplete: false
-                            });
-
-                            // Store the error
-                            const processedToolCall = {
-                                ...toolCall,
-                                error: toolError instanceof Error ? toolError.message : String(toolError)
-                            };
-
-                            allToolCalls.push(processedToolCall);
-
-                            // Add the tool call error to the messages
-                            messages.push(processedToolCall);
-                        }
-                    } else {
-                        // Add tool not found information to the chunk callback
-                        onChunk({
-                            content: `\n[Ollama] Tool ${toolCall.name} not found`,
-                            isComplete: false
-                        });
-                    }
-                }
-                toolsCalled = true;
-            }
-
-            // Format chunk content
-            const content = formatResponseContent(chunk);
-
-            fullContent += content;
-
-            // Call the chunk callback
-            onChunk({
-                content,
-                isComplete: false
-            });
-        }
-
-        if (!toolsCalled) {
-            return fullContent;
-        }
-
-        return await this.streamWithToolCalls(ollamaWithTools, messages, onChunk, options, allToolCalls, fullContent);
     }
 
 

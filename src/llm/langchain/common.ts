@@ -1,7 +1,7 @@
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { DynamicTool } from '@langchain/core/tools';
+import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import { LLMOptions } from './base.js';
+import chalk from 'chalk';
 
 /**
  * Prepares messages for the LLM
@@ -19,6 +19,19 @@ export function prepareMessages(prompt: string, options: LLMOptions = {}): any[]
 
   // Add user message
   messages.push(new HumanMessage(prompt));
+
+  // Add chat history if provided
+  if (options.chatHistory && options.chatHistory.length > 0) {
+    for (const message of options.chatHistory) {
+      if (message.role === 'user') {
+        messages.push(new HumanMessage(message.content));
+      } else if (message.role === 'assistant') {
+        messages.push(new AIMessage(message.content));
+      } else if (message.role === 'system') {
+        messages.push(new SystemMessage(message.content));
+      }
+    }
+  }
 
   return messages;
 }
@@ -45,11 +58,101 @@ export function configureModelOptions(model: BaseChatModel, options: LLMOptions 
  * @param response - The response from the LLM
  * @returns The formatted content
  */
-export function formatResponseContent(response: { content: string | object }): string {
-  // Convert MessageContent to string if needed
-  return typeof response.content === 'string'
-    ? response.content
-    : JSON.stringify(response.content);
+export function formatResponseContent(response: any): string {
+  if (!response) {
+    return '';
+  }
+
+  // Handle different response formats
+  if (typeof response === 'string') {
+    return response;
+  }
+
+  if (response.content) {
+    return typeof response.content === 'string' 
+      ? response.content 
+      : JSON.stringify(response.content);
+  }
+
+  // Handle text property (some LLM responses use this)
+  if ('text' in response && response.text) {
+    return typeof response.text === 'string'
+      ? response.text
+      : JSON.stringify(response.text);
+  }
+
+  // Handle message property (some LLM responses use this)
+  if ('message' in response && response.message) {
+    if (typeof response.message === 'string') {
+      return response.message;
+    }
+
+    if (response.message.content) {
+      return typeof response.message.content === 'string' 
+        ? response.message.content 
+        : JSON.stringify(response.message.content);
+    }
+  }
+
+  return '';
+}
+
+function truncate(result: string, truncateLimit: number) {
+  return result.length > truncateLimit
+      ? result.substring(0, truncateLimit) + '...'
+      : result;
+}
+
+/**
+ * Formats a tool call for CLI output
+ * @param toolCall - The tool call to format
+ * @param result - The result of the tool call (optional)
+ * @param error - The error from the tool call (optional)
+ * @returns The formatted tool call
+ */
+export function formatToolCall(toolCall: any, res?: any, error?: string): string {
+  let truncateLimit = 1600;
+  const toolName = chalk.bold.blue(toolCall.name);
+  const args = JSON.stringify(toolCall.args || {}, null, 2);
+  let output = `\n${chalk.cyan('┌─')} Tool Call: ${toolName}\n`;
+  output += `${chalk.cyan('│')} Arguments: ${truncate(args, truncateLimit)}\n`;
+
+  const result = res ? JSON.stringify(res, null, 2) : undefined;
+  if (result) {
+    const truncatedResult = truncate(result, truncateLimit);
+    output += `${chalk.cyan('│')} ${chalk.green('✓')} Result: ${truncatedResult}\n`;
+  }
+
+  if (error) {
+    output += `${chalk.cyan('│')} ${chalk.red('✗')} Error: ${error}\n`;
+  }
+
+  output += `${chalk.cyan('└─')}\n`;
+
+  return output;
+}
+
+/**
+ * Formats a tool execution error for CLI output
+ * @param toolName - The name of the tool
+ * @param error - The error message
+ * @returns The formatted error message
+ */
+export function formatToolError(toolName: string, error: string): string {
+  return `${chalk.red('Error executing tool')} ${chalk.bold.blue(toolName)}: ${error}`;
+}
+
+/**
+ * Formats a tool execution success for CLI output
+ * @param toolName - The name of the tool
+ * @param result - The result of the tool execution
+ * @returns The formatted success message
+ */
+export function formatToolSuccess(toolName: string, result: string): string {
+  const truncatedResult = result.length > 100 
+    ? result.substring(0, 100) + '...' 
+    : result;
+  return `${chalk.green('Tool')} ${chalk.bold.blue(toolName)} ${chalk.green('executed successfully')}: ${truncatedResult}`;
 }
 
 /**
@@ -61,27 +164,49 @@ export function formatResponseContent(response: { content: string | object }): s
  */
 export async function runLLmToolsLoop(model: BaseChatModel, messages: any[], options: LLMOptions): Promise<any> {
   const response = await model.invoke(messages);
-  if (!response.tool_calls || response.tool_calls.length === 0) {
+  const toolCalls = response.tool_calls || [];
+
+  // If no tool calls, return the response
+  if (toolCalls.length === 0) {
     return response;
   }
 
+  // Process tool calls
+  console.log(chalk.yellow(`\n🔧 Processing ${toolCalls.length} tool call(s)...\n`));
+
   messages.push(response);
-  // Process tool calls in parallel
-  const toolCallPromises = response.tool_calls.map(async (toolCall: any) => {
-    let tool: DynamicTool | undefined = options.tools?.find(t => t.name === toolCall.name) as DynamicTool | undefined;
+
+  // Process each tool call sequentially for better reporting
+  for (const toolCall of toolCalls) {
+    const toolName = toolCall.name;
+    const tool = options.tools?.find(t => t.name === toolName);
+
     if (!tool) {
-      throw new Error(`Tool ${toolCall.name} not found in options`);
+      console.log(formatToolCall(toolCall, undefined, `Tool "${toolName}" not found`));
+      // Add a tool message with the error
+      messages.push(new ToolMessage(`Error: Tool "${toolName}" not found`, toolName));
+      continue;
     }
 
-    return await tool.invoke(toolCall);
-  });
+    try {
+      // Execute the tool
+      console.log(chalk.yellow(`Executing tool: ${toolName}...`));
+      const result = await tool.invoke(toolCall);
 
-  // Wait for all tool calls to complete
-  const toolResults = await Promise.all(toolCallPromises);
+      console.log(formatToolCall(toolCall, result));
 
-  // Add all tool results to messages
-  messages.push(...toolResults);
+      messages.push(result);
+    } catch (error) {
+      // Log the error
+      const errorMessage = error instanceof Error ? JSON.stringify(error, null, 2) : String(error);
+      console.log(formatToolCall(toolCall, undefined, errorMessage));
 
-  // Continue the conversation with the tool results
+      // Add the tool error to messages
+      messages.push(new ToolMessage(`Error: ${errorMessage}`, toolName));
+    }
+  }
+
+  // Call the model again with the tool results
+  console.log(chalk.yellow(`\n🤖 Calling model again with tool results...\n`));
   return await runLLmToolsLoop(model, messages, options);
 }

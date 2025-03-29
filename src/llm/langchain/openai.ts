@@ -75,17 +75,6 @@ export class OpenAILangChainLLM extends LangChainLLM {
   }
 
   /**
-   * Run the LLM tools loop
-   * @param messages - The messages to send to the LLM
-   * @param options - Additional options
-   * @param openAIWithTools - The OpenAI model with tools
-   * @returns The final response
-   */
-  private async runLLmToolsLoop(messages: any[], options: LLMOptions, openAIWithTools: ChatOpenAI) {
-    return await runLLmToolsLoop(openAIWithTools, messages, options);
-  }
-
-  /**
    * Generates a response to a prompt
    * @param prompt - The prompt to send to the LLM
    * @param options - Additional options
@@ -106,18 +95,18 @@ export class OpenAILangChainLLM extends LangChainLLM {
       const messages = prepareMessages(prompt, options);
 
       // Bind tools to the model
-      let openAIWithTools = openAI.bind({
+      const openAIWithTools = openAI.bind({
         tools: options.tools ?? [],
       });
 
-      // Generate response with tools
-      const response = await this.runLLmToolsLoop(messages, options, openAIWithTools as any);
+      // Use the common runLLmToolsLoop method
+      const response = await runLLmToolsLoop(openAIWithTools as any, messages, options);
 
       // Format response content
       const content = formatResponseContent(response);
 
       return {
-        content: content,
+        content,
         toolCalls: [],
         usage: undefined
       };
@@ -157,23 +146,18 @@ export class OpenAILangChainLLM extends LangChainLLM {
       // Prepare messages
       const messages = prepareMessages(prompt, options);
 
-      // Generate streaming response
-      let fullContent = '';
+      // Bind tools to the model
+      const openAIWithTools = openAI.bind({
+        tools: options.tools ?? [],
+      });
 
-      const stream = await openAI.stream(messages);
-
-      for await (const chunk of stream) {
-        // Format chunk content
-        const content = formatResponseContent(chunk);
-
-        fullContent += content;
-
-        // Call the chunk callback
-        onChunk({
-          content,
-          isComplete: false
-        });
-      }
+      // Use the base class's handleStreamWithToolCalls method
+      const { content, toolCalls } = await this.handleStreamWithToolCalls(
+        openAIWithTools as ChatOpenAI,
+        messages,
+        onChunk,
+        options
+      );
 
       // Call the chunk callback with isComplete = true
       onChunk({
@@ -182,8 +166,8 @@ export class OpenAILangChainLLM extends LangChainLLM {
       });
 
       return {
-        content: fullContent,
-        toolCalls: []
+        content,
+        toolCalls
       };
     } catch (error) {
       if (error instanceof Error) {
