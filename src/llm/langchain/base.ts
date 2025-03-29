@@ -238,10 +238,9 @@ export abstract class LangChainLLM {
             // Add the tool result to messages
             messages.push(result);
           } catch (error) {
-            // Add tool call error information
-            const errorMessage = error instanceof Error ? error.message : String(error);
+            // Add tool call error information - pass the error object directly
             onChunk({
-              content: formatToolCall(toolCall, undefined, errorMessage),
+              content: formatToolCall(toolCall, undefined, error),
               isComplete: false
             });
 

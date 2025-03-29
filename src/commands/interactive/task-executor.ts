@@ -4,7 +4,10 @@ import inquirer from 'inquirer';
 import { BaseLLM } from '../../llm/base.js';
 import { CodeRenderer } from '../../utils/code-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
-import { ReadFileTool, WriteFileTool, EditFileTool } from '../../llm/tools/index.js';
+import { WriteFileTool, EditFileTool } from '../../llm/tools/index.js';
+import { FileToRead } from '../../task-planning/schemas.js';
+import fs from 'fs/promises';
+import path from 'path';
 
 /**
  * Class that executes tasks using the LLM
@@ -48,7 +51,6 @@ export class TaskExecutor {
       }, {
         // Enable function calling
         tools: [
-          new ReadFileTool(projectDir),
           new EditFileTool(projectDir),
           new WriteFileTool(projectDir, async (filePath, content) => {
             const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
@@ -75,6 +77,22 @@ export class TaskExecutor {
   }
 
   /**
+   * Reads the content of a file
+   * @param filePath - The path to the file
+   * @param projectDir - The project directory
+   * @returns The content of the file
+   */
+  private async readFileContent(filePath: string, projectDir: string): Promise<string> {
+    try {
+      const fullPath = path.isAbsolute(filePath) ? filePath : path.join(projectDir, filePath);
+      return await fs.readFile(fullPath, 'utf-8');
+    } catch (error) {
+      console.error(chalk.red(`Error reading file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      return `Error reading file: ${filePath}`;
+    }
+  }
+
+  /**
    * Executes a list of subtasks
    * @param subtasks - The subtasks to execute
    * @param executionOrder - The execution order of subtasks
@@ -83,7 +101,7 @@ export class TaskExecutor {
    * @returns Whether all tasks were executed successfully
    */
   public async executeSubtasks(
-    subtasks: Array<{ id: string; taskSpecification: string }>,
+    subtasks: Array<{ id: string; taskSpecification: string; filesToRead?: FileToRead[] }>,
     executionOrder: string[],
     llm: BaseLLM,
     compiledHistory: string
@@ -102,8 +120,25 @@ export class TaskExecutor {
       const subtask = orderedSubtasks[i];
       console.log(chalk.yellow(`\nExecuting Task ${i + 1}/${orderedSubtasks.length}: ${subtask.taskSpecification}`));
 
+      // Get project directory
+      const projectDir = this.projectContext.getProjectContext().projectRoot;
+
+      // Pre-load file contents if files_to_read is provided
+      let fileContents = '';
+      if (subtask.filesToRead && subtask.filesToRead.length > 0) {
+        for (const file of subtask.filesToRead) {
+          try {
+            const content = await this.readFileContent(file.path, projectDir);
+            fileContents += `file: ${file.path}\n\`\`\`${file.syntax}\n${content}\n\`\`\`\n\n`;
+          } catch (error) {
+            console.error(chalk.red(`Error reading file ${file.path}: ${error instanceof Error ? error.message : 'Unknown error'}`));
+          }
+        }
+      }
+
       // Create a task-specific prompt
       const taskPrompt = `
+${fileContents}
 You are a precise task executor. Your job is to implement exactly what has been planned in the task specification, without deviation or creative additions unless explicitly required.
 
 <task_specification>

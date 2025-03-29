@@ -1,28 +1,38 @@
 import { z } from 'zod';
 import { BaseTool } from './base.js';
-import { ComplexityLevel, LLMType, Subtask } from '../../task-planning/schemas.js';
-import { v4 as uuidv4 } from 'uuid';
+import { ComplexityLevel } from '../../task-planning/schemas.js';
+
+/**
+ * Zod schema for a file to read
+ */
+const FileToReadSchema = z.object({
+  path: z.string().describe('The file path to read'),
+  syntax: z.string().describe('The syntax/language of the file (e.g., "typescript", "python")')
+}).describe('Information about a file that needs to be read');
 
 /**
  * Zod schema for a subtask
  */
 const SubtaskSchema = z.object({
-  id: z.string().optional(),
-  taskSpecification: z.string(),
+  id: z.string().optional().describe('Unique identifier for the subtask'),
+  taskSpecification: z.string().describe('Detailed description of what the subtask should accomplish'),
   complexity: z.enum([ComplexityLevel.LOW, ComplexityLevel.MEDIUM, ComplexityLevel.HIGH])
-    .default(ComplexityLevel.MEDIUM),
-  dependencies: z.array(z.string()).default([])
-});
+    .default(ComplexityLevel.MEDIUM)
+    .describe('The estimated complexity level of the subtask'),
+  dependencies: z.array(z.string()).default([]).describe('IDs of other subtasks that must be completed before this one'),
+  filesToRead: z.array(FileToReadSchema).optional().describe('List of files that need to be read to complete this subtask')
+}).describe('A single unit of work within a larger task plan');
 
 /**
  * Zod schema for a task plan
  */
 const TaskPlanSchema = z.object({
-  planningThinking: z.string(),
-  subtasks: z.array(SubtaskSchema),
-  executionOrder: z.array(z.string()).optional(),
+  planningThinking: z.string().describe('The reasoning and thought process behind the task plan'),
+  subtasks: z.array(SubtaskSchema).describe('List of subtasks that make up the complete task'),
+  executionOrder: z.array(z.string()).optional().describe('The recommended order of subtask execution by ID'),
   overallComplexity: z.enum([ComplexityLevel.LOW, ComplexityLevel.MEDIUM, ComplexityLevel.HIGH]).optional()
-});
+    .describe('The overall complexity assessment of the entire task')
+}).describe('A complete plan for executing a complex task, broken down into subtasks');
 
 /**
  * Tool for saving a plan from LLM
@@ -68,10 +78,21 @@ export class ExtractPlanTool extends BaseTool {
         result: 'plan is saved, your mission is complete.'
       }, null, 2);
     } catch (error) {
+      // Handle Zod validation errors specially
+      if (error && typeof error === 'object' && 'errors' in error) {
+        const zodError = error as { errors: Array<{ path: string[], message: string }> };
+
+        return JSON.stringify({
+            result: 'plan is not saved, please fix the errors',
+            error: zodError.errors
+        })
+      }
+
       if (error instanceof Error) {
         throw new Error(`Failed to save plan: ${error.message}`);
       }
-      throw new Error('Failed to save plan: Unknown error');
+
+      throw new Error(`Failed to save plan: ${String(error)}`);
     }
   }
 

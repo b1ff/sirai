@@ -57,6 +57,14 @@ export interface ComplexityAssessmentResult {
 }
 
 /**
+ * Interface for a file to read in a subtask
+ */
+export interface FileToRead {
+  path: string;
+  syntax: string;
+}
+
+/**
  * Interface for a subtask in the task plan
  */
 export interface Subtask {
@@ -65,6 +73,7 @@ export interface Subtask {
   complexity: ComplexityLevel;
   llmType: LLMType;
   dependencies: string[];
+  filesToRead?: FileToRead[];
 }
 
 /**

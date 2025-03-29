@@ -104,13 +104,60 @@ function truncate(result: string, truncateLimit: number) {
 }
 
 /**
+ * Formats an error object into a readable string
+ * @param error - The error to format
+ * @returns The formatted error string
+ */
+function formatError(error: any): string {
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  try {
+    // If it's a JSON string, parse it and format it
+    if (typeof error === 'string' && (error.startsWith('{') || error.startsWith('['))) {
+      const parsed = JSON.parse(error);
+      return formatError(parsed);
+    }
+
+    // If it's an object with a message property, use that
+    if (error && typeof error === 'object') {
+      if (error.message) {
+        return error.message;
+      }
+
+      // If it has an output property that's an object or string, format that
+      if (error.output) {
+        if (typeof error.output === 'string') {
+          return error.output;
+        }
+        if (typeof error.output === 'object') {
+          return JSON.stringify(error.output, null, 2);
+        }
+      }
+
+      // If it's a simple object, stringify it
+      if (Object.keys(error).length > 0) {
+        return JSON.stringify(error, null, 2);
+      }
+    }
+
+    // Fallback to string representation
+    return String(error);
+  } catch (e) {
+    // If anything goes wrong during formatting, return the original error as a string
+    return String(error);
+  }
+}
+
+/**
  * Formats a tool call for CLI output
  * @param toolCall - The tool call to format
  * @param result - The result of the tool call (optional)
  * @param error - The error from the tool call (optional)
  * @returns The formatted tool call
  */
-export function formatToolCall(toolCall: any, res?: any, error?: string): string {
+export function formatToolCall(toolCall: any, res?: any, error?: any): string {
   let truncateLimit = 1600;
   const toolName = chalk.bold.blue(toolCall.name);
   const args = JSON.stringify(toolCall.args || {}, null, 2);
@@ -124,7 +171,8 @@ export function formatToolCall(toolCall: any, res?: any, error?: string): string
   }
 
   if (error) {
-    output += `${chalk.cyan('│')} ${chalk.red('✗')} Error: ${error}\n`;
+    const formattedError = formatError(error);
+    output += `${chalk.cyan('│')} ${chalk.red('✗')} Error: ${formattedError}\n`;
   }
 
   output += `${chalk.cyan('└─')}\n`;
@@ -197,12 +245,12 @@ export async function runLLmToolsLoop(model: BaseChatModel, messages: any[], opt
 
       messages.push(result);
     } catch (error) {
-      // Log the error
-      const errorMessage = error instanceof Error ? JSON.stringify(error, null, 2) : String(error);
-      console.log(formatToolCall(toolCall, undefined, errorMessage));
+      // Log the error - pass the error object directly to formatToolCall
+      console.log(formatToolCall(toolCall, undefined, error));
 
-      // Add the tool error to messages
-      messages.push(new ToolMessage(`Error: ${errorMessage}`, toolName));
+      // Format the error message for the tool message
+      const formattedError = formatError(error);
+      messages.push(new ToolMessage(`Error: ${formattedError}`, toolName));
     }
   }
 

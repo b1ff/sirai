@@ -40,17 +40,31 @@ export abstract class BaseTool implements Tool {
       try {
         return await this.execute(args);
       } catch (error) {
+        // Create a more detailed error object
+        const errorObj: Record<string, unknown> = {
+          status: 'error',
+        };
+
         if (error instanceof Error) {
-          return JSON.stringify({
-            status: 'error',
-            message: `Failed to execute tool: ${error.message}`,
+          errorObj.message = `Failed to execute tool: ${error.message}`;
+          // Include stack trace in development environments
+          if (process.env.NODE_ENV === 'development' && error.stack) {
+            errorObj.stack = error.stack;
+          }
+          // Include any additional properties from the error
+          Object.entries(error).forEach(([key, value]) => {
+            if (key !== 'message' && key !== 'stack') {
+              errorObj[key] = value;
+            }
           });
+        } else if (error && typeof error === 'object') {
+          errorObj.message = 'Failed to execute tool';
+          errorObj.error = error;
+        } else {
+          errorObj.message = `Failed to execute tool: ${String(error)}`;
         }
 
-        return JSON.stringify({
-          status: 'error',
-          message: 'Failed to execute tool: Unknown error',
-        });
+        return JSON.stringify(errorObj, null, 2);
       }
     }, {
       name: this.name,

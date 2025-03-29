@@ -265,12 +265,16 @@ After the plan is saved successfully, provide a concise summary of your understa
         // Select LLM type based on complexity
         const llmType = this.selectLLMTypeByComplexity(complexity);
 
+        // Include files_to_read if provided
+        const filesToRead = Array.isArray(subtask.filesToRead) ? subtask.filesToRead : [];
+
         return {
           id,
           taskSpecification: subtask.taskSpecification || 'No spec provided',
           complexity,
           llmType,
-          dependencies
+          dependencies,
+          filesToRead
         };
       });
 
