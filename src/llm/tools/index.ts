@@ -8,7 +8,6 @@ export {
   ToolsConfig,
   defaultToolsConfig
 } from './config.js';
-export * from './factory.js';
 export * from './read-file.js';
 export * from './run-process.js';
 export * from './find-files.js';

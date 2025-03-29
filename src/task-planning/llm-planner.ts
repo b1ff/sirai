@@ -408,6 +408,13 @@ After the plan is saved successfully, provide a concise summary of your understa
         explanation += `- Dependencies: ${dependencyIndices.join(', ')}\n`;
       }
 
+      if (subtask.filesToRead && subtask.filesToRead.length > 0) {
+        explanation += `- Files to Read:\n`;
+        subtask.filesToRead.forEach(file => {
+          explanation += `  - ${file.path} (${file.syntax})\n`;
+        });
+      }
+
       explanation += `\n`;
     });
 
