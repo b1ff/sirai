@@ -32,7 +32,8 @@ export class ReadFileTool extends BaseTool {
      * @default 'utf-8'
      */
     encoding: z.enum(['utf-8', 'ascii', 'binary', 'base64', 'hex', 'latin1']).optional().default('utf-8')
-      .describe('The encoding to use when reading the file')
+    path: z.union([z.string(), z.array(z.string())]).describe('The path to the file(s) to read'),
+    encoding: z.enum(['utf-8', 'ascii', 'binary', 'base64', 'hex', 'latin1']).optional().default('utf-8')
   });
 
   /**
