@@ -37,10 +37,9 @@ describe('DecompositionStrategies', () => {
   describe('HighComplexityStrategy', () => {
     it('should decompose task into many subtasks', () => {
       const strategy = new HighComplexityStrategy();
-      const taskPlan = strategy.decompose(testRequest, testTaskType, ComplexityLevel.HIGH);
+      const taskPlan = strategy.decompose(testRequest, ComplexityLevel.HIGH);
 
       expect(taskPlan.originalRequest).to.equal(testRequest);
-      expect(taskPlan.taskType).to.equal(testTaskType);
       expect(taskPlan.overallComplexity).to.equal(ComplexityLevel.HIGH);
       expect(taskPlan.subtasks.length).to.be.greaterThan(5); // Should have many subtasks
       expect(taskPlan.executionOrder.length).to.equal(taskPlan.subtasks.length);
@@ -63,10 +62,9 @@ describe('DecompositionStrategies', () => {
   describe('MediumComplexityStrategy', () => {
     it('should decompose task into a standard number of subtasks', () => {
       const strategy = new MediumComplexityStrategy();
-      const taskPlan = strategy.decompose(testRequest, testTaskType, ComplexityLevel.MEDIUM);
+      const taskPlan = strategy.decompose(testRequest, ComplexityLevel.MEDIUM);
 
       expect(taskPlan.originalRequest).to.equal(testRequest);
-      expect(taskPlan.taskType).to.equal(testTaskType);
       expect(taskPlan.overallComplexity).to.equal(ComplexityLevel.MEDIUM);
       expect(taskPlan.subtasks.length).to.be.greaterThan(1);
       expect(taskPlan.subtasks.length).to.be.lessThan(6); // Should have a moderate number of subtasks
@@ -90,10 +88,9 @@ describe('DecompositionStrategies', () => {
   describe('LowComplexityStrategy', () => {
     it('should decompose task into minimal subtasks', () => {
       const strategy = new LowComplexityStrategy();
-      const taskPlan = strategy.decompose(testRequest, testTaskType, ComplexityLevel.LOW);
+      const taskPlan = strategy.decompose(testRequest, ComplexityLevel.LOW);
 
       expect(taskPlan.originalRequest).to.equal(testRequest);
-      expect(taskPlan.taskType).to.equal(testTaskType);
       expect(taskPlan.overallComplexity).to.equal(ComplexityLevel.LOW);
       expect(taskPlan.subtasks.length).to.equal(1); // Should have only one subtask
       expect(taskPlan.executionOrder.length).to.equal(1);

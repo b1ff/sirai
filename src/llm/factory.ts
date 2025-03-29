@@ -1,5 +1,6 @@
 import { BaseLLM, LLMConfig } from './base.js';
 import { LangChainAdapter } from './langchain-adapter.js';
+import { VercelAIAdapter } from './vercel-ai-adapter.js';
 
 /**
  * Interface for application configuration
@@ -47,11 +48,11 @@ export class LLMFactory {
       throw new Error(`${type} LLM is disabled in configuration`);
     }
 
-    const provider = llmConfig.provider?.toLowerCase();
+    const provider = llmConfig.provider?.toLowerCase() || 'ollama';
 
-    return new LangChainAdapter({
+    return new VercelAIAdapter({
       ...llmConfig,
-      provider: provider || 'ollama'
+      provider
     });
   }
 

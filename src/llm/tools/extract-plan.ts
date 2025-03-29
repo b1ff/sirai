@@ -65,10 +65,8 @@ export class ExtractPlanTool extends BaseTool {
    * @param args - The arguments to pass to the tool
    * @returns The saved plan as a JSON string
    */
-  async execute(args: Record<string, unknown>): Promise<string> {
-    // Parse and validate the plan
-    const plan = this.parameters.parse(args).plan;
-
+  async execute(plan: any): Promise<string> {
+    console.log(plan);
     // Save the plan
     this.savedPlan = plan;
 
