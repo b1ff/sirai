@@ -31,7 +31,7 @@ export class LangChainAdapter extends BaseLLM {
    * @param options - Additional options
    * @returns The generated response
    */
-  async generate(prompt: string, options?: LLMOptions): Promise<string> {
+  async generate(prompt: string, userRequest: string, options?: LLMOptions): Promise<string> {
     const response = await this.langChainLLM.generateResponse(prompt, this.adaptOptions(options));
     return response.content;
   }

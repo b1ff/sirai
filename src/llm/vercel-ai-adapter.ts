@@ -76,18 +76,13 @@ export class VercelAIAdapter extends BaseLLM {
     // Nothing to initialize for Vercel AI SDK
   }
 
-  /**
-   * Generates a response to a prompt
-   * @param prompt - The prompt to send to the LLM
-   * @param options - Additional options
-   * @returns The generated response
-   */
-  async generate(prompt: string, options?: LLMOptions): Promise<string> {
+  async generate(prompt: string, userRequest: string, options?: LLMOptions): Promise<string> {
     try {
       // Use Vercel AI SDK generateText function
       const result = await generateText({
         model: this.modelProvider(this.model),
-        prompt,
+        system: prompt,
+        prompt: userRequest,
         ...this.adaptOptions(options),
       });
 
@@ -188,11 +183,6 @@ export class VercelAIAdapter extends BaseLLM {
     };
   }
 
-  /**
-   * Adapts the options for Vercel AI SDK
-   * @param options - The options to adapt
-   * @returns The adapted options
-   */
   private adaptOptions(options?: LLMOptions): Record<string, any> {
     if (!options) return {};
 
@@ -242,7 +232,8 @@ export class VercelAIAdapter extends BaseLLM {
 
       // Enable multi-step tool calls by setting maxSteps
       // This allows the model to call tools and then generate more text based on the results
-      adaptedOptions.maxSteps = options.maxSteps || 5;
+      adaptedOptions.maxSteps = options.maxSteps || 55;
+      adaptedOptions.experimental_continueSteps = true;
     }
 
     return adaptedOptions;

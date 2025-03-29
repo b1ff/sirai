@@ -15,4 +15,4 @@ export * from './write-file.js';
 export * from './list-files.js';
 export * from './list-directories.js';
 export * from './edit-file.js';
-export * from './extract-plan.js';
+export * from './store-plan.js';

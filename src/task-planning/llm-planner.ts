@@ -3,7 +3,7 @@ import { AppConfig, LLMFactory } from '../llm/factory.js';
 import { FileSystemUtils } from './file-system-utils.js';
 import { ComplexityLevel, ContextProfile, LLMType, Subtask, TaskPlan, TaskType } from './schemas.js';
 import { v4 as uuidv4 } from 'uuid';
-import { BaseTool, ExtractPlanTool, FindFilesTool, ListFilesTool, ReadFileTool } from '../llm/tools/index.js';
+import { BaseTool, StorePlanTool, FindFilesTool, ListFilesTool, ReadFileTool } from '../llm/tools/index.js';
 
 /**
  * Configuration for the LLM planner
@@ -156,7 +156,7 @@ export class LLMPlanner {
     // 2. Create tools for the LLM to use
     const readFileTool = new ReadFileTool(contextProfile.projectRoot);
     const listFilesTool = new ListFilesTool(contextProfile.projectRoot);
-    const extractPlanTool = new ExtractPlanTool();
+    const extractPlanTool = new StorePlanTool();
 
     // Wrap tools with debug logging if debug is enabled
     const tools = this.debug 
@@ -170,10 +170,6 @@ export class LLMPlanner {
     // 3. Create prompt for LLM
     const prompt = `
 You are a task planning assistant. Your job is to analyze a user request and create a detailed, executable plan to accomplish their goal.
-
-<user_request>
-${request}
-</user_request>
 
 PROJECT CONTEXT:
 Current Directory: ${contextProfile.currentDirectory}
@@ -234,7 +230,7 @@ Title: [Descriptive Task Title]
 
 8. EXECUTION ORDER: Create a logical sequence for implementation.
 
-After creating the plan, use the extract_plan tool to save it. 
+ALWAYS call "store_plan" tool at the end of context gathering. 
 
 After the plan is saved successfully, provide a concise summary of your understanding of the task and the approach you've outlined.
 `;
@@ -242,7 +238,7 @@ After the plan is saved successfully, provide a concise summary of your understa
     // 4. Generate task plan using LLM with tools
     try {
       // Generate response using the regular LLM
-      await this.llm.generate(prompt, { tools });
+      await this.llm.generate(prompt, request, { tools });
 
       // Get the saved plan from the tool
       const savedPlan = extractPlanTool.getSavedPlan();

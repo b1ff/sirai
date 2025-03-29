@@ -37,16 +37,16 @@ const TaskPlanSchema = z.object({
 /**
  * Tool for saving a plan from LLM
  */
-export class ExtractPlanTool extends BaseTool {
+export class StorePlanTool extends BaseTool {
   /**
    * The name of the tool
    */
-  name = 'extract_plan';
+  name = 'store_plan';
 
   /**
    * The description of the tool
    */
-  description = 'Save the task plan. Pass the plan as input to this tool.';
+  description = 'Save the task plan. Pass the generated plan as input to this tool. If this tool provided it must be always called.';
 
   /**
    * The parameters of the tool
@@ -65,8 +65,7 @@ export class ExtractPlanTool extends BaseTool {
    * @param args - The arguments to pass to the tool
    * @returns The saved plan as a JSON string
    */
-  async execute(plan: any): Promise<string> {
-    console.log(plan);
+  async execute({ plan }: any): Promise<string> {
     // Save the plan
     this.savedPlan = plan;
 

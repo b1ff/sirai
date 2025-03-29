@@ -55,7 +55,7 @@ export abstract class BaseLLM {
    * @param options - Additional options
    * @returns The generated response
    */
-  abstract generate(prompt: string, options?: LLMOptions): Promise<string>;
+  abstract generate(prompt: string, userRequest: string, options?: LLMOptions): Promise<string>;
 
   /**
    * Generates a response to a prompt with streaming
