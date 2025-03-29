@@ -1,5 +1,4 @@
 import { BaseLLM, LLMConfig } from './base.js';
-import { LangChainAdapter } from './langchain-adapter.js';
 import { VercelAIAdapter } from './vercel-ai-adapter.js';
 
 /**

@@ -1,6 +1,6 @@
 import { LLMConfig, LLMOptions } from '../base.js';
 import { BaseTool } from '../tools/index.js';
-import { formatToolCall, formatToolError, formatToolSuccess } from '../langchain/common.js';
+import { formatToolCall, formatToolError, formatToolSuccess } from '../tools/formatting.js';
 import chalk from 'chalk';
 import { tool } from 'ai';
 

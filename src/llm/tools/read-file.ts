@@ -25,14 +25,12 @@ export class ReadFileTool extends BaseTool {
     /**
      * The path to the file to read
      */
-    path: z.string().describe('The path to the file to read'),
+    path: z.union([z.string(), z.array(z.string())]).describe('The path to the file(s) to read'),
 
     /**
      * The encoding to use when reading the file
      * @default 'utf-8'
      */
-    encoding: z.enum(['utf-8', 'ascii', 'binary', 'base64', 'hex', 'latin1']).optional().default('utf-8')
-    path: z.union([z.string(), z.array(z.string())]).describe('The path to the file(s) to read'),
     encoding: z.enum(['utf-8', 'ascii', 'binary', 'base64', 'hex', 'latin1']).optional().default('utf-8')
   });
 
@@ -61,7 +59,8 @@ export class ReadFileTool extends BaseTool {
       const { path: filePath, encoding } = this.parameters.parse(args);
 
       // Ensure the file is in the working directory
-      const resolvedPath = ensurePathInWorkingDir(filePath, this.workingDir);
+      const pathToUse = Array.isArray(filePath) ? filePath[0] : filePath;
+      const resolvedPath = ensurePathInWorkingDir(pathToUse, this.workingDir);
 
       // Check if the file exists
       try {

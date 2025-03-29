@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { tool } from "@langchain/core/tools";
-import { Tool } from '../langchain/base.js';
+import { tool } from "ai";
+import { Tool } from './types.js';
 import { ZodError } from 'zod';
 
 import { resolve } from 'node:path';
@@ -74,17 +74,17 @@ export abstract class BaseTool implements Tool {
     return JSON.stringify(errorObj, null, 2);
   }
 
-  toLangChainTool() {
-    return tool(async (args) => {
-      try {
-        return await this.execute(args);
-      } catch (error) {
-        return this.handleToolError(error);
-      }
-    }, {
-      name: this.name,
+  toVercelAITool() {
+    return tool({
       description: this.description,
-      schema: this.parameters as any,
+      parameters: this.parameters as any,
+      execute: async (args) => {
+        try {
+          return await this.execute(args);
+        } catch (error) {
+          return this.handleToolError(error);
+        }
+      }
     });
   }
 }
