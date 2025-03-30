@@ -2,6 +2,10 @@
   "taskSpecification": "Refactor read-files tool so it works with multiple files.",
   "filesToRead": [
     {
+      "path": "src/llm/tools/base.ts",
+      "syntax": "typescript"
+    },
+    {
       "path": "src/llm/tools/read-file.ts",
       "syntax": "typescript"
     }

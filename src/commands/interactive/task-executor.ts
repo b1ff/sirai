@@ -38,8 +38,6 @@ export class TaskExecutor {
     const projectDir = process.cwd();
 
     return `
-${fileContents}
-
 You are a precise task executor. Your job is to implement exactly what has been planned in the task specification, without deviation or creative additions unless explicitly required.
 
 <task_specification>
@@ -61,6 +59,8 @@ Current working directory: '${projectDir}'
 - MAINTAIN the exact interfaces specified to ensure correct integration
 - RESPECT any dependencies mentioned in the task specification
 - IF parts of the specification are ambiguous, make your best judgment based on the context provided and note your assumptions
+
+${fileContents}
 `;
   }
 
