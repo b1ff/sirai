@@ -80,7 +80,7 @@ export class WriteFileTool extends BaseTool {
    * @param dir - The directory to check
    * @returns True if the directory is a git repository
    */
-  private async isGitRepository(dir: string): Promise<boolean> {
+  protected async isGitRepository(dir: string): Promise<boolean> {
     try {
       await execAsync('git rev-parse --is-inside-work-tree', { cwd: dir });
       return true;
@@ -94,7 +94,7 @@ export class WriteFileTool extends BaseTool {
    * @param dir - The directory to check
    * @returns True if the repository has uncommitted changes
    */
-  private async hasUncommittedChanges(dir: string): Promise<boolean> {
+  protected async hasUncommittedChanges(dir: string): Promise<boolean> {
     try {
       const { stdout } = await execAsync('git status --porcelain', { cwd: dir });
       return stdout.trim().length > 0;

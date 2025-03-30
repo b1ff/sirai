@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import * as fs from 'fs/promises';
+import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 import { BaseTool, ensurePathInWorkingDir } from './base.js';
 
@@ -40,12 +40,25 @@ export class ReadFileTool extends BaseTool {
   private workingDir: string;
 
   /**
+   * The file system module
+   */
+  private fs: {
+    access: typeof fsPromises.access;
+    readFile: typeof fsPromises.readFile;
+  };
+
+  /**
    * Constructor
    * @param workingDir - The working directory
+   * @param fs - The file system module (for testing)
    */
-  constructor(workingDir: string) {
+  constructor(workingDir: string, fs?: {
+    access: typeof fsPromises.access;
+    readFile: typeof fsPromises.readFile;
+  }) {
     super();
     this.workingDir = path.resolve(workingDir);
+    this.fs = fs || fsPromises;
   }
 
   /**
@@ -64,13 +77,13 @@ export class ReadFileTool extends BaseTool {
 
       // Check if the file exists
       try {
-        await fs.access(resolvedPath);
+        await this.fs.access(resolvedPath);
       } catch (error) {
         throw new Error(`File ${filePath} does not exist`);
       }
 
       // Read the file
-      const content = await fs.readFile(resolvedPath, { encoding: encoding as BufferEncoding });
+      const content = await this.fs.readFile(resolvedPath, { encoding: encoding as BufferEncoding });
 
       return content;
     } catch (error) {

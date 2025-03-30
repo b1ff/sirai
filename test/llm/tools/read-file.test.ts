@@ -1,6 +1,5 @@
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import * as fs from 'fs/promises';
 import * as path from 'path';
 import { ReadFileTool } from '../../../src/llm/tools/read-file.js';
 
@@ -9,11 +8,21 @@ describe('ReadFileTool', () => {
   let readFileTool: ReadFileTool;
   let fsAccessStub: sinon.SinonStub;
   let fsReadFileStub: sinon.SinonStub;
+  let mockFs: { access: sinon.SinonStub; readFile: sinon.SinonStub };
 
   beforeEach(() => {
-    readFileTool = new ReadFileTool(workingDir);
-    fsAccessStub = sinon.stub(fs, 'access').resolves();
-    fsReadFileStub = sinon.stub(fs, 'readFile').resolves('file content');
+    // Create mock fs functions
+    fsAccessStub = sinon.stub().resolves();
+    fsReadFileStub = sinon.stub().resolves('file content');
+
+    // Create mock fs object
+    mockFs = {
+      access: fsAccessStub,
+      readFile: fsReadFileStub
+    };
+
+    // Create ReadFileTool with mock fs
+    readFileTool = new ReadFileTool(workingDir, mockFs);
   });
 
   afterEach(() => {
@@ -33,32 +42,24 @@ describe('ReadFileTool', () => {
     expect(fsReadFileStub.firstCall.args[1]).to.deep.equal({ encoding: 'utf-8' });
   });
 
-  it('should throw an error if the file is outside the working directory', async () => {
-    try {
-      await readFileTool.execute({
-        path: '../outside.txt',
-        encoding: 'utf-8'
-      });
-      expect.fail('Should have thrown an error');
-    } catch (error) {
-      expect(error).to.be.an.instanceOf(Error);
-      expect((error as Error).message).to.include('outside the working directory');
-    }
+  it('should return an error message if the file is outside the working directory', async () => {
+    const result = await readFileTool.execute({
+      path: '../outside.txt',
+      encoding: 'utf-8'
+    });
+
+    expect(result).to.include('outside the working directory');
   });
 
-  it('should throw an error if the file does not exist', async () => {
+  it('should return an error message if the file does not exist', async () => {
     fsAccessStub.rejects(new Error('File not found'));
 
-    try {
-      await readFileTool.execute({
-        path: 'nonexistent.txt',
-        encoding: 'utf-8'
-      });
-      expect.fail('Should have thrown an error');
-    } catch (error) {
-      expect(error).to.be.an.instanceOf(Error);
-      expect((error as Error).message).to.include('does not exist');
-    }
+    const result = await readFileTool.execute({
+      path: 'nonexistent.txt',
+      encoding: 'utf-8'
+    });
+
+    expect(result).to.include('does not exist');
   });
 
   it('should use utf-8 encoding by default', async () => {

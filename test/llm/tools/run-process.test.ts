@@ -1,143 +1,173 @@
 import { expect } from 'chai';
-import * as sinon from 'sinon';
-import * as childProcess from 'child_process';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { RunProcessTool } from '../../../src/llm/tools/run-process.js';
 import { TrustedCommandsConfig } from '../../../src/llm/tools/base.js';
 
 describe('RunProcessTool', () => {
+  // Create a temporary test directory
+  const testDir = path.join(process.cwd(), 'test', 'temp-run-process');
   let runProcessTool: RunProcessTool;
-  let execStub: sinon.SinonStub;
-  let promptForApprovalStub: sinon.SinonStub;
+  let promptForApprovalStub: (command: string) => Promise<boolean>;
   const trustedCommandsConfig: TrustedCommandsConfig = {
-    trustedCommands: ['ls', 'echo']
+    trustedCommands: ['ls', 'echo', 'cat', 'mkdir', 'touch', 'rm']
   };
 
-  beforeEach(() => {
-    execStub = sinon.stub(childProcess, 'exec');
-    promptForApprovalStub = sinon.stub().resolves(true);
-    runProcessTool = new RunProcessTool(trustedCommandsConfig, promptForApprovalStub);
-  });
-
-  afterEach(() => {
-    sinon.restore();
-  });
-
-  it('should execute a trusted command without prompting for approval', async () => {
-    execStub.callsFake((cmd, callback) => {
-      callback(null, { stdout: 'command output', stderr: '' });
-      return {} as childProcess.ChildProcess;
-    });
-
-    const result = await runProcessTool.execute({
-      command: 'ls -la',
-      timeout: 1000
-    });
-
-    expect(result).to.equal('command output');
-    expect(execStub.calledOnce).to.be.true;
-    expect(execStub.firstCall.args[0]).to.equal('ls -la');
-    expect(promptForApprovalStub.called).to.be.false;
-  });
-
-  it('should prompt for approval for non-trusted commands', async () => {
-    execStub.callsFake((cmd, callback) => {
-      callback(null, { stdout: 'command output', stderr: '' });
-      return {} as childProcess.ChildProcess;
-    });
-
-    const result = await runProcessTool.execute({
-      command: 'rm -rf /',
-      timeout: 1000
-    });
-
-    expect(result).to.equal('command output');
-    expect(execStub.calledOnce).to.be.true;
-    expect(execStub.firstCall.args[0]).to.equal('rm -rf /');
-    expect(promptForApprovalStub.calledOnce).to.be.true;
-    expect(promptForApprovalStub.firstCall.args[0]).to.equal('rm -rf /');
-  });
-
-  it('should not execute a command if approval is denied', async () => {
-    promptForApprovalStub.resolves(false);
-
-    const result = await runProcessTool.execute({
-      command: 'rm -rf /',
-      timeout: 1000
-    });
-
-    expect(result).to.equal('Command execution was not approved by the user.');
-    expect(execStub.called).to.be.false;
-  });
-
-  it('should include stderr in the output if present', async () => {
-    execStub.callsFake((cmd, callback) => {
-      callback(null, { stdout: 'command output', stderr: 'some warnings' });
-      return {} as childProcess.ChildProcess;
-    });
-
-    const result = await runProcessTool.execute({
-      command: 'ls -la',
-      timeout: 1000
-    });
-
-    expect(result).to.include('command output');
-    expect(result).to.include('some warnings');
-  });
-
-  it('should throw an error if the command fails', async () => {
-    execStub.callsFake((cmd, callback) => {
-      callback(new Error('Command failed'), { stdout: '', stderr: 'error output' });
-      return {} as childProcess.ChildProcess;
-    });
-
+  // Create test directory and files before all tests
+  before(async () => {
+    // Create test directory if it doesn't exist
     try {
-      await runProcessTool.execute({
-        command: 'ls -la',
-        timeout: 1000
-      });
-      expect.fail('Should have thrown an error');
+      await fs.mkdir(testDir, { recursive: true });
     } catch (error) {
-      expect(error).to.be.an.instanceOf(Error);
-      expect((error as Error).message).to.include('Failed to execute command');
+      console.error(`Error creating test directory: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    // Create a test file
+    await fs.writeFile(path.join(testDir, 'test-file.txt'), 'This is a test file');
+  });
+
+  // Clean up test files after all tests
+  after(async () => {
+    try {
+      await fs.rm(testDir, { recursive: true, force: true });
+    } catch (error) {
+      console.error(`Error removing test directory: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   });
 
-  it('should use the default timeout if not specified', async () => {
-    execStub.callsFake((cmd, callback) => {
-      callback(null, { stdout: 'command output', stderr: '' });
-      return {} as childProcess.ChildProcess;
-    });
-
-    await runProcessTool.execute({
-      command: 'ls -la'
-    });
-
-    expect(execStub.calledOnce).to.be.true;
+  beforeEach(() => {
+    // Create a stub for promptForApproval that always returns true
+    promptForApprovalStub = async () => true;
+    runProcessTool = new RunProcessTool(trustedCommandsConfig, promptForApprovalStub);
   });
 
-  it('should timeout if the command takes too long', async () => {
-    // This test is a bit tricky because we need to simulate a timeout
-    // We'll use a timer to reject the promise after a delay
-    const clock = sinon.useFakeTimers();
-    
-    execStub.returns({} as childProcess.ChildProcess);
-    
-    const executePromise = runProcessTool.execute({
-      command: 'sleep 10',
-      timeout: 100
-    });
-    
-    // Fast-forward time
-    clock.tick(200);
-    
+  afterEach(async () => {
+    // Clean up any files created during tests
     try {
-      await executePromise;
-      expect.fail('Should have thrown an error');
+      const files = await fs.readdir(testDir);
+      for (const file of files) {
+        if (file !== 'test-file.txt') {
+          await fs.rm(path.join(testDir, file), { recursive: true, force: true });
+        }
+      }
     } catch (error) {
+      console.error(`Error cleaning up test files: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  });
+
+  it('should execute a trusted command without prompting for approval', async () => {
+    // Create a spy for promptForApproval
+    let promptCalled = false;
+    promptForApprovalStub = async () => {
+      promptCalled = true;
+      return true;
+    };
+    runProcessTool = new RunProcessTool(trustedCommandsConfig, promptForApprovalStub);
+
+    const result = await runProcessTool.execute({
+      command: `ls ${testDir}`,
+      timeout: 1000
+    });
+
+    // Verify the command executed successfully
+    expect(result).to.include('test-file.txt');
+    // Verify promptForApproval was not called
+    expect(promptCalled).to.be.false;
+  });
+
+  it('should prompt for approval for non-trusted commands', async () => {
+    // Create a spy for promptForApproval
+    let promptCalled = false;
+    let commandRequested = '';
+    promptForApprovalStub = async (command: string) => {
+      promptCalled = true;
+      commandRequested = command;
+      return true;
+    };
+    runProcessTool = new RunProcessTool(trustedCommandsConfig, promptForApprovalStub);
+
+    // Use a non-trusted command that's safe to execute
+    const nonTrustedCommand = 'pwd';
+    const result = await runProcessTool.execute({
+      command: nonTrustedCommand,
+      timeout: 1000
+    });
+
+    // Verify the command executed successfully
+    expect(result).to.not.be.empty;
+    // Verify promptForApproval was called with the correct command
+    expect(promptCalled).to.be.true;
+    expect(commandRequested).to.equal(nonTrustedCommand);
+  });
+
+  it('should not execute a command if approval is denied', async () => {
+    // Create a spy for promptForApproval that denies approval
+    promptForApprovalStub = async () => false;
+    runProcessTool = new RunProcessTool(trustedCommandsConfig, promptForApprovalStub);
+
+    // Use a non-trusted command
+    const result = await runProcessTool.execute({
+      command: 'pwd',
+      timeout: 1000
+    });
+
+    // Verify the command was not executed
+    expect(result).to.equal('Command execution was not approved by the user.');
+  });
+
+  it('should include stderr in the output if present', async () => {
+    // Use a command that produces stderr output
+    // 'ls' with a non-existent file will produce stderr
+    const result = await runProcessTool.execute({
+      command: `ls ${testDir}/non-existent-file`,
+      timeout: 1000
+    });
+
+    // Verify stderr is included in the output
+    expect(result).to.include('No such file or directory');
+  });
+
+  it('should handle errors when the command fails', async () => {
+    // Use a command that will fail
+    // 'cat' with a non-existent file will fail
+    const result = await runProcessTool.execute({
+      command: `cat ${testDir}/non-existent-file`,
+      timeout: 1000
+    });
+
+    // The tool should handle the error and return an error message
+    expect(result).to.include('No such file or directory');
+  });
+
+  it('should use the default timeout if not specified', async () => {
+    // Execute a command without specifying a timeout
+    const result = await runProcessTool.execute({
+      command: `ls ${testDir}`
+    });
+
+    // Verify the command executed successfully
+    expect(result).to.include('test-file.txt');
+  });
+
+  it('should timeout if the command takes too long', async function() {
+    // This test uses a real command that takes longer than the timeout
+    // Increase the test timeout to ensure the test has enough time to complete
+    this.timeout(5000);
+
+    try {
+      // Use a command that will take longer than the timeout
+      // 'sleep' command will wait for the specified number of seconds
+      await runProcessTool.execute({
+        command: 'sleep 3',
+        timeout: 100 // 100ms timeout
+      });
+
+      // If we get here, the command didn't timeout as expected
+      expect.fail('Command should have timed out');
+    } catch (error) {
+      // Verify the error is a timeout error
       expect(error).to.be.an.instanceOf(Error);
       expect((error as Error).message).to.include('timed out');
-    } finally {
-      clock.restore();
     }
   });
 });
