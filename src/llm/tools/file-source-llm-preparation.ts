@@ -43,7 +43,7 @@ export class FileSourceLlmPreparation {
    */
   private addLineNumbers(content: string): string {
     const lines = content.split('\n');
-    return lines.map((line, index) => `${index + 1}: ${line}`).join('\n');
+    return lines.map((line, index) => `${index + 1}:${line}`).join('\n');
   }
 
   /**
@@ -53,7 +53,7 @@ export class FileSourceLlmPreparation {
    */
   public async renderForLlm(withLineNumbers: boolean = false): Promise<string> {
     let fileContents = '';
-    
+
     if (this.files && this.files.length > 0) {
       for (const file of this.files) {
         try {
@@ -65,7 +65,7 @@ export class FileSourceLlmPreparation {
         }
       }
     }
-    
+
     return fileContents;
   }
 }
