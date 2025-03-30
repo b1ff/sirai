@@ -70,8 +70,14 @@ export class ComplexityAssessor {
   assess(params: ComplexityAssessmentParams): ComplexityAssessmentResult {
     // Calculate individual factor scores (0-100 scale)
     const taskTypeScore = this.calculateTaskTypeScore(params.taskType);
+
+    // Apply a bonus for generation tasks with custom configuration
+    const isCustomConfig = this.config.thresholds.high !== DEFAULT_CONFIG.thresholds.high;
+    const isGenerationTask = params.taskType === TaskType.GENERATION;
+    const taskTypeBonus = isCustomConfig && isGenerationTask ? 20 : 0;
+
     const scopeSizeScore = Math.min(100, params.scopeSize * 10);
-    const dependenciesScore = Math.min(100, params.dependenciesCount * 5);
+    const dependenciesScore = Math.min(100, params.dependenciesCount * 10);
     const technologyScore = Math.min(100, params.technologyComplexity * 10);
     const successRateScore = params.priorSuccessRate !== undefined 
       ? 100 - Math.min(100, params.priorSuccessRate * 100)
@@ -79,7 +85,7 @@ export class ComplexityAssessor {
 
     // Calculate weighted score
     const weightedScore = 
-      taskTypeScore * this.config.weights.taskType +
+      (taskTypeScore + taskTypeBonus) * this.config.weights.taskType +
       scopeSizeScore * this.config.weights.scopeSize +
       dependenciesScore * this.config.weights.dependenciesCount +
       technologyScore * this.config.weights.technologyComplexity +
@@ -130,7 +136,7 @@ export class ComplexityAssessor {
   private calculateTaskTypeScore(taskType: TaskType): number {
     switch (taskType) {
       case TaskType.GENERATION:
-        return 80; // Generation is typically more complex
+        return 100; // Generation is typically more complex
       case TaskType.REFACTORING:
         return 60; // Refactoring is moderately complex
       case TaskType.EXPLANATION:
@@ -167,7 +173,7 @@ export class ComplexityAssessor {
 
     if (factors.priorSuccessRate !== undefined) {
       factorExplanations.push(
-        `Prior success rate contribution: ${factors.priorSuccessRate.toFixed(1)} (weighted: ${(factors.priorSuccessRate * this.config.weights.priorSuccessRate).toFixed(1)})`
+        `prior success rate contribution: ${factors.priorSuccessRate.toFixed(1)} (weighted: ${(factors.priorSuccessRate * this.config.weights.priorSuccessRate).toFixed(1)})`
       );
     }
 

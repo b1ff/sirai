@@ -24,6 +24,7 @@ interface CommandOptions {
   list?: boolean;
   set?: string;
   debug?: boolean;
+  task?: string;
 }
 
 // Default command (interactive mode)
@@ -77,6 +78,29 @@ program
     try {
       const { configureSettings } = await import('./commands/configure.js');
       await configureSettings(options, config);
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error(chalk.red(`Error: ${error.message}`));
+      } else {
+        console.error(chalk.red('An unknown error occurred'));
+      }
+      process.exit(1);
+    }
+  });
+
+// Execute task directly
+program
+  .command('task')
+  .description('Execute a task directly')
+  .option('-l, --local', 'Use local LLM only')
+  .option('-r, --remote', 'Use remote LLM only')
+  .option('-d, --debug', 'Enable debug mode')
+  .argument('<task>', 'Task specification to execute')
+  .action(async (task: string, options: CommandOptions) => {
+    try {
+      const { executeTaskDirectly } = await import('./commands/execute-task.js');
+      options.task = task;
+      await executeTaskDirectly(options, config);
     } catch (error) {
       if (error instanceof Error) {
         console.error(chalk.red(`Error: ${error.message}`));

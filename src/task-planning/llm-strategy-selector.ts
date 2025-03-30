@@ -68,6 +68,12 @@ export class LLMStrategySelector {
     tags: string[] = []
   ): LLMType {
     // Check for overrides first
+    // Check for 'critical' tag specifically first
+    if (tags.includes('critical') && this.config.overrides && this.config.overrides['critical']) {
+      return this.config.overrides['critical'];
+    }
+
+    // Then check other tags
     for (const tag of tags) {
       if (this.config.overrides && this.config.overrides[tag]) {
         return this.config.overrides[tag];
@@ -78,7 +84,7 @@ export class LLMStrategySelector {
     if (complexityScore >= this.config.thresholds.remote) {
       return LLMType.REMOTE;
     } else if (complexityScore >= this.config.thresholds.hybrid) {
-      return LLMType.LOCAL;
+      return LLMType.HYBRID;
     } else {
       return LLMType.LOCAL;
     }
@@ -129,19 +135,19 @@ export class LLMStrategySelector {
     tags: string[] = []
   ): string {
     let explanation = `Selected ${llmType.toUpperCase()} LLM strategy for ${complexityLevel.toUpperCase()} complexity task (score: ${complexityScore.toFixed(1)})`;
-    
+
     // Add information about overrides if applicable
     const appliedOverrides = tags.filter(tag => 
       this.config.overrides && this.config.overrides[tag]
     );
-    
+
     if (appliedOverrides.length > 0) {
       explanation += `\nSelection influenced by tags: ${appliedOverrides.join(', ')}`;
     }
-    
+
     // Add threshold information
     explanation += `\nThresholds: REMOTE >= ${this.config.thresholds.remote}, HYBRID >= ${this.config.thresholds.hybrid}, LOCAL >= ${this.config.thresholds.local}`;
-    
+
     return explanation;
   }
 }
