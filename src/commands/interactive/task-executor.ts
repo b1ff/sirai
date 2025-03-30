@@ -6,8 +6,7 @@ import { CodeRenderer } from '../../utils/code-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
 import { WriteFileTool, EditFileTool } from '../../llm/tools/index.js';
 import { FileToRead } from '../../task-planning/schemas.js';
-import fs from 'fs/promises';
-import path from 'path';
+import { FileSourceLlmPreparation } from '../../llm/tools/file-source-llm-preparation.js';
 
 /**
  * Class that executes tasks using the LLM
@@ -27,6 +26,42 @@ export class TaskExecutor {
   ) {
     this.codeRenderer = codeRenderer;
     this.projectContext = projectContext;
+  }
+
+  /**
+   * Creates a standard task prompt
+   * @param taskSpecification - The task specification
+   * @param fileContents - Optional file contents to include in the prompt
+   * @returns The formatted task prompt
+   */
+  public createTaskPrompt(taskSpecification: string, fileContents: string = ''): string {
+    const projectDir = process.cwd();
+
+    return `
+${fileContents}
+
+You are a precise task executor. Your job is to implement exactly what has been planned in the task specification, without deviation or creative additions unless explicitly required.
+
+<task_specification>
+${taskSpecification}
+</task_specification>
+
+Current working directory: '${projectDir}'
+
+## EXECUTION INSTRUCTIONS
+1. READ the task specification completely before beginning implementation
+2. FOLLOW all implementation steps in the exact order specified
+3. ADHERE strictly to any file paths, module names, and interface definitions provided
+4. IMPLEMENT code consistent with the existing project patterns and styles
+5. VERIFY your implementation against the provided testing criteria
+
+## IMPLEMENTATION GUIDELINES
+- USE the provided file system tools to write, or modify files
+- ALWAYS choose to call tools to make modifications - do not output outside tools calls, it won't be used
+- MAINTAIN the exact interfaces specified to ensure correct integration
+- RESPECT any dependencies mentioned in the task specification
+- IF parts of the specification are ambiguous, make your best judgment based on the context provided and note your assumptions
+`;
   }
 
   /**
@@ -76,26 +111,6 @@ export class TaskExecutor {
     }
   }
 
-  private async readFileContent(filePath: string, projectDir: string): Promise<string> {
-    try {
-      const fullPath = path.isAbsolute(filePath) ? filePath : path.join(projectDir, filePath);
-      return await fs.readFile(fullPath, 'utf-8');
-    } catch (error) {
-      console.error(chalk.red(`Error reading file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`));
-      return `Error reading file: ${filePath}`;
-    }
-  }
-
-  /**
-   * Adds line numbers to file content in a way that LLMs can understand
-   * @param content - The file content
-   * @returns The file content with line numbers
-   */
-  private addLineNumbers(content: string): string {
-    return content;
-    // const lines = content.split('\n');
-    // return lines.map((line, index) => `${index + 1}:${line}`).join('\n');
-  }
 
   /**
    * Executes a list of subtasks
@@ -131,45 +146,13 @@ export class TaskExecutor {
       // Pre-load file contents if files_to_read is provided
       let fileContents = '';
       if (subtask.filesToRead && subtask.filesToRead.length > 0) {
-        for (const file of subtask.filesToRead) {
-          try {
-            const content = await this.readFileContent(file.path, projectDir);
-            const contentWithLineNumbers = this.addLineNumbers(content);
-            // fileContents += `file: ${file.path}\n\`\`\`${file.syntax}\n${contentWithLineNumbers}\n\`\`\`\n\n`;
-            fileContents += `<file path="${file.path}" syntax="${file.syntax}">\n${contentWithLineNumbers}\n</file>\n`;
-          } catch (error) {
-            console.error(chalk.red(`Error reading file ${file.path}: ${error instanceof Error ? error.message : 'Unknown error'}`));
-          }
-        }
+        const filePreparation = new FileSourceLlmPreparation(subtask.filesToRead, projectDir);
+        fileContents = await filePreparation.renderForLlm(true); // true to include line numbers
       }
 
-      // Create a task-specific prompt
-      const taskPrompt = `
-${fileContents}
+      // Create a task-specific prompt using the shared method
+      const taskPrompt = this.createTaskPrompt(subtask.taskSpecification, fileContents);
 
-You are a precise task executor. Your job is to implement exactly what has been planned in the task specification, without deviation or creative additions unless explicitly required.
-
-<task_specification>
-${subtask.taskSpecification}
-</task_specification>
-
-Current working directory: '${process.cwd()}'
-
-## EXECUTION INSTRUCTIONS
-1. READ the task specification completely before beginning implementation
-2. FOLLOW all implementation steps in the exact order specified
-3. ADHERE strictly to any file paths, module names, and interface definitions provided
-4. IMPLEMENT code consistent with the existing project patterns and styles
-5. VERIFY your implementation against the provided testing criteria
-
-## IMPLEMENTATION GUIDELINES
-- USE the provided file system tools to write, or modify files
-- ALWAYS choose to call tools to make modifications - do not output outside tools calls, it won't be used
-- MAINTAIN the exact interfaces specified to ensure correct integration
-- RESPECT any dependencies mentioned in the task specification
-- IF parts of the specification are ambiguous, make your best judgment based on the context provided and note your assumptions
-`;
-      
       console.log(taskPrompt);
 
       const success = await this.executeTask(taskPrompt, llm);

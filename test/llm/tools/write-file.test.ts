@@ -11,7 +11,7 @@ describe('WriteFileTool', () => {
   let fsAccessStub: sinon.SinonStub;
   let fsWriteFileStub: sinon.SinonStub;
   let fsMkdirStub: sinon.SinonStub;
-  let execStub: sinon.SinonStub;
+  let execStub: sinon.SinonStubbedInstance<typeof exec>;
   let promptForApprovalStub: sinon.SinonStub;
 
   beforeEach(() => {

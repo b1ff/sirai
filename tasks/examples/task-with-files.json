@@ -1,0 +1,13 @@
+{
+  "taskSpecification": "Update the executeTaskDirectly function to add error handling for invalid JSON files",
+  "filesToRead": [
+    {
+      "path": "src/commands/execute-task.ts",
+      "syntax": "typescript"
+    },
+    {
+      "path": "src/index.ts",
+      "syntax": "typescript"
+    }
+  ]
+}

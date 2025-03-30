@@ -1,10 +1,14 @@
 import chalk from 'chalk';
 import ora from 'ora';
+import fs from 'fs/promises';
+import path from 'path';
 import { AppConfig } from '../config/config.js';
 import { LLMFactory } from '../llm/factory.js';
 import { CodeRenderer } from '../utils/code-renderer.js';
 import { ProjectContext } from '../utils/project-context.js';
 import { TaskExecutor } from './interactive/task-executor.js';
+import { Subtask, FileToRead } from '../task-planning/schemas.js';
+import { FileSourceLlmPreparation } from '../llm/tools/file-source-llm-preparation.js';
 
 /**
  * Interface for command options
@@ -15,6 +19,7 @@ interface CommandOptions {
   prompt?: string;
   debug?: boolean;
   task?: string;
+  taskFile?: string;
   [key: string]: any;
 }
 
@@ -26,8 +31,41 @@ interface CommandOptions {
 export async function executeTaskDirectly(options: CommandOptions, config: AppConfig): Promise<void> {
   console.log(chalk.cyan('Executing task directly...'));
 
-  if (!options.task) {
-    throw new Error('No task specified');
+  let taskSpecification: string;
+  let filesToRead: FileToRead[] | undefined;
+
+  if (options.taskFile) {
+    try {
+      // Read task from JSON file
+      const filePath = path.isAbsolute(options.taskFile) 
+        ? options.taskFile 
+        : path.join(process.cwd(), options.taskFile);
+
+      console.log(chalk.blue(`Reading task from file: ${filePath}`));
+      const fileContent = await fs.readFile(filePath, 'utf-8');
+      const taskData = JSON.parse(fileContent);
+
+      // Extract task specification from the JSON
+      if (taskData.taskSpecification) {
+        // If the JSON contains a direct task specification
+        taskSpecification = taskData.taskSpecification;
+        filesToRead = taskData.filesToRead;
+      } else if (taskData.subtasks && taskData.subtasks.length > 0) {
+        // If the JSON contains a task plan with subtasks, use the first subtask
+        const subtask = taskData.subtasks[0] as Subtask;
+        taskSpecification = subtask.taskSpecification;
+        filesToRead = subtask.filesToRead;
+      } else {
+        throw new Error('Invalid task file format. Expected taskSpecification or subtasks array.');
+      }
+    } catch (error) {
+      throw new Error(`Failed to read task file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  } else if (options.task) {
+    // Use task specification provided directly
+    taskSpecification = options.task;
+  } else {
+    throw new Error('No task specified. Use --task or provide a task file.');
   }
 
   // Initialize LLM
@@ -53,31 +91,21 @@ export async function executeTaskDirectly(options: CommandOptions, config: AppCo
 
     // Execute the task
     console.log(chalk.blue('\nExecuting task...'));
-    console.log(chalk.yellow(`Task: ${options.task}`));
+    console.log(chalk.yellow(`Task: ${taskSpecification}`));
 
-    const taskPrompt = `
-You are a precise task executor. Your job is to implement exactly what has been planned in the task specification, without deviation or creative additions unless explicitly required.
+    // Get project directory
+    const projectDir = projectContext.getProjectContext().projectRoot;
 
-<task_specification>
-${options.task}
-</task_specification>
+    // Pre-load file contents if filesToRead is provided
+    let fileContents = '';
+    if (filesToRead && filesToRead.length > 0) {
+      console.log(chalk.blue(`Reading ${filesToRead.length} file(s) for context...`));
+      const filePreparation = new FileSourceLlmPreparation(filesToRead, projectDir);
+      fileContents = await filePreparation.renderForLlm(false); // false to exclude line numbers
+    }
 
-Current working directory: '${process.cwd()}'
-
-## EXECUTION INSTRUCTIONS
-1. READ the task specification completely before beginning implementation
-2. FOLLOW all implementation steps in the exact order specified
-3. ADHERE strictly to any file paths, module names, and interface definitions provided
-4. IMPLEMENT code consistent with the existing project patterns and styles
-5. VERIFY your implementation against the provided testing criteria
-
-## IMPLEMENTATION GUIDELINES
-- USE the provided file system tools to write, or modify files
-- ALWAYS choose to call tools to make modifications - do not output outside tools calls, it won't be used
-- MAINTAIN the exact interfaces specified to ensure correct integration
-- RESPECT any dependencies mentioned in the task specification
-- IF parts of the specification are ambiguous, make your best judgment based on the context provided and note your assumptions
-`;
+    // Create a task-specific prompt using the shared method
+    const taskPrompt = taskExecutor.createTaskPrompt(taskSpecification, fileContents);
 
     const success = await taskExecutor.executeTask(taskPrompt, llm);
 

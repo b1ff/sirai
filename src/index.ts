@@ -25,6 +25,7 @@ interface CommandOptions {
   set?: string;
   debug?: boolean;
   task?: string;
+  taskFile?: string;
 }
 
 // Default command (interactive mode)
@@ -95,11 +96,11 @@ program
   .option('-l, --local', 'Use local LLM only')
   .option('-r, --remote', 'Use remote LLM only')
   .option('-d, --debug', 'Enable debug mode')
-  .argument('<task>', 'Task specification to execute')
-  .action(async (task: string, options: CommandOptions) => {
+  .argument('<taskFile>', 'Path to JSON file containing a task to execute')
+  .action(async (taskFile: string, options: CommandOptions) => {
     try {
       const { executeTaskDirectly } = await import('./commands/execute-task.js');
-      options.task = task;
+      options.taskFile = taskFile;
       await executeTaskDirectly(options, config);
     } catch (error) {
       if (error instanceof Error) {

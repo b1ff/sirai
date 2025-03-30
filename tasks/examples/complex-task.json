@@ -1,0 +1,31 @@
+{
+  "originalRequest": "Create a simple Node.js application that reads a file and counts the number of words",
+  "overallComplexity": "medium",
+  "subtasks": [
+    {
+      "id": "subtask-1",
+      "taskSpecification": "Create a file reader module that reads a text file and returns its contents",
+      "complexity": "low",
+      "llmType": "local",
+      "dependencies": [],
+      "filesToRead": []
+    },
+    {
+      "id": "subtask-2",
+      "taskSpecification": "Create a word counter module that counts the number of words in a text",
+      "complexity": "medium",
+      "llmType": "hybrid",
+      "dependencies": ["subtask-1"],
+      "filesToRead": []
+    },
+    {
+      "id": "subtask-3",
+      "taskSpecification": "Create a main application file that uses the file reader and word counter modules",
+      "complexity": "medium",
+      "llmType": "hybrid",
+      "dependencies": ["subtask-1", "subtask-2"],
+      "filesToRead": []
+    }
+  ],
+  "executionOrder": ["subtask-1", "subtask-2", "subtask-3"]
+}
