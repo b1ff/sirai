@@ -28,18 +28,18 @@ export class VercelAIAdapter extends BaseLLM {
 
   /**
    * Generates a response to a prompt
-   * @param prompt - The prompt to send to the LLM
-   * @param userRequest - The user request
+   * @param systemInstructions - The system instructions to send to the LLM
+   * @param userInput - The user input
    * @param options - Additional options
    * @returns The generated response
    */
-  async generate(prompt: string | undefined, userRequest: string, options?: LLMOptions): Promise<string> {
+  async generate(systemInstructions: string | undefined, userInput: string, options?: LLMOptions): Promise<string> {
     try {
       // Use Vercel AI SDK generateText function
       const result = await generateText({
         model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
-        system: prompt,
-        prompt: userRequest,
+        prompt: userInput,
+        system: systemInstructions, // note that system instructions works very bad with local llms
         toolChoice: 'auto',
         ...this.aiProvider.adaptOptions(options),
       });

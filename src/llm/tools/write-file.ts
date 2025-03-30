@@ -15,7 +15,7 @@ export class WriteFileTool extends BaseTool {
   /**
    * The name of the tool
    */
-  name = 'write_file';
+  name = 'write_new_file';
 
   /**
    * The description of the tool

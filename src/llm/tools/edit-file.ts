@@ -3,41 +3,32 @@ import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 import { BaseTool, ensurePathInWorkingDir } from './base.js';
 
-/**
- * Tool for editing files using line numbers and content verification to identify edit regions
- */
 export class EditFileTool extends BaseTool {
-  /**
-   * The name of the tool
-   */
   name = 'edit_file';
 
-  /**
-   * The description of the tool
-   */
   description = 'Edit a file by replacing content between specified line positions. Requires line numbers and expected content at those lines for verification. Limited to the working directory.';
 
   parameters = z.object({
-    file: z.string()
+    file_path: z.string()
         .describe('The file path to edit (relative to working directory). Pay attention to the file path within <file> tags if provided in the prompt.'),
 
-    startingPositionLineNumber: z.number()
+    starting_position_line_number: z.number()
         .int()
         .positive()
         .describe('The line number where modification should start'),
 
-    startingPositionCurrentContent: z.string()
+    starting_position_current_content: z.string()
         .describe('The current content at the starting line. Used to verify the correct position.'),
 
-    endPositionLineNumber: z.number()
-          .int()
-          .positive()
-          .describe('The line number where modification should end '),
+    end_position_line_number: z.number()
+        .int()
+        .positive()
+        .describe('The line number where modification should end'),
 
-    endPositionCurrentContent: z.string()
-          .describe('The current content at the ending line. Used to verify the correct position.'),
+    end_position_current_content: z.string()
+        .describe('The current content at the ending line. Used to verify the correct position.'),
 
-    newContent: z.string()
+    new_content: z.string()
         .describe('The new content to replace everything from start to end position (inclusive)')
   });
 
@@ -76,26 +67,24 @@ export class EditFileTool extends BaseTool {
    */
   async execute(args: Record<string, unknown>): Promise<string> {
     try {
-      // Parse and validate arguments
       const {
-        file,
-        startingPositionLineNumber,
-        startingPositionCurrentContent,
-        endPositionLineNumber,
-        endPositionCurrentContent,
-        newContent
+        file_path: passedFilePath,
+        starting_position_current_content,
+        end_position_line_number,
+        end_position_current_content,
+        starting_position_line_number,
+        new_content
       } = this.parameters.parse(args);
-
-      const startingPosition = {
-        lineNumber: startingPositionLineNumber,
-        currentContent: startingPositionCurrentContent
+      const file = passedFilePath;
+      const starting_position = {
+        line_number: starting_position_line_number,
+        current_content: starting_position_current_content
       };
 
-      const endPosition = {
-        lineNumber: endPositionLineNumber,
-        currentContent: endPositionCurrentContent
+      const end_position = {
+        line_number: end_position_line_number,
+        current_content: end_position_current_content
       };
-
 
       const filePath = ensurePathInWorkingDir(file, this.workingDir);
 
@@ -113,14 +102,14 @@ export class EditFileTool extends BaseTool {
       const lines = content.split('\n');
 
       // Convert 1-based line numbers to 0-based indices
-      const startLineIndex = startingPosition.lineNumber - 1;
-      const endLineIndex = endPosition.lineNumber - 1;
+      const startLineIndex = starting_position.line_number - 1;
+      const endLineIndex = end_position.line_number - 1;
 
       // Validate line numbers are within file bounds
       if (startLineIndex < 0 || startLineIndex >= lines.length) {
         return JSON.stringify({
           status: 'error',
-          message: `Starting line number ${startingPosition.lineNumber} is out of bounds (file has ${lines.length} lines)`,
+          message: `Starting line number ${starting_position.line_number} is out of bounds (file has ${lines.length} lines)`,
           suggestion: 'Provide a valid line number within the file bounds'
         });
       }
@@ -128,7 +117,7 @@ export class EditFileTool extends BaseTool {
       if (endLineIndex < 0 || endLineIndex >= lines.length) {
         return JSON.stringify({
           status: 'error',
-          message: `Ending line number ${endPosition.lineNumber} is out of bounds (file has ${lines.length} lines)`,
+          message: `Ending line number ${end_position.line_number} is out of bounds (file has ${lines.length} lines)`,
           suggestion: 'Provide a valid line number within the file bounds'
         });
       }
@@ -136,29 +125,29 @@ export class EditFileTool extends BaseTool {
       if (endLineIndex < startLineIndex) {
         return JSON.stringify({
           status: 'error',
-          message: `Ending line number ${endPosition.lineNumber} is before starting line number ${startingPosition.lineNumber}`,
+          message: `Ending line number ${end_position.line_number} is before starting line number ${starting_position.line_number}`,
           suggestion: 'Ensure the ending line number is greater than or equal to the starting line number'
         });
       }
 
       // Verify content at the specified lines
-      if (lines[startLineIndex].trim() !== startingPosition.currentContent.trim()) {
+      if (lines[startLineIndex].trim() !== starting_position.current_content.trim()) {
         return JSON.stringify({
           status: 'error',
           message: 'Content at starting line does not match expected content',
-          lineNumber: startingPosition.lineNumber,
-          expectedContent: startingPosition.currentContent,
+          lineNumber: starting_position.line_number,
+          expectedContent: starting_position.current_content,
           actualContent: lines[startLineIndex],
           suggestion: 'Make sure the expected content matches exactly, including whitespace and indentation'
         });
       }
 
-      if (lines[endLineIndex].trim() !== endPosition.currentContent.trim()) {
+      if (lines[endLineIndex].trim() !== end_position.current_content.trim()) {
         return JSON.stringify({
           status: 'error',
           message: 'Content at ending line does not match expected content',
-          lineNumber: endPosition.lineNumber,
-          expectedContent: endPosition.currentContent,
+          lineNumber: end_position.line_number,
+          expectedContent: end_position.current_content,
           actualContent: lines[endLineIndex],
           suggestion: 'Make sure the expected content matches exactly, including whitespace and indentation'
         });
@@ -166,7 +155,7 @@ export class EditFileTool extends BaseTool {
 
       // Create a diff to show what will change
       const linesToReplace = lines.slice(startLineIndex, endLineIndex + 1);
-      const newLines = newContent.split('\n');
+      const newLines = new_content.split('\n');
 
       let diff = `File: ${file}\n`;
       diff += `Replacing content from line ${startLineIndex + 1} to ${endLineIndex + 1} (${linesToReplace.length} lines)\n`;

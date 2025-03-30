@@ -62,7 +62,7 @@ Current working directory: '${projectDir}'
       const projectDir = this.projectContext.getProjectContext().projectRoot;
 
       // Execute the task with function calling enabled
-      const response = await llm.generate(undefined, `${prompt}\n${userInput}`, {
+      const response = await llm.generate(undefined, `${prompt}\n<user_input>${userInput}</user_input>`, {
         // Enable function calling
         tools: [
           new EditFileTool(projectDir),

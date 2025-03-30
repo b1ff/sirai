@@ -66,16 +66,12 @@ describe('EditFileTool', () => {
 
   it('should edit a file with valid line numbers and content', async () => {
     const result = await editFileTool.execute({
-      file: 'test.txt',
-      startingPosition: {
-        lineNumber: 2,
-        currentContent: 'line 2'
-      },
-      endPosition: {
-        lineNumber: 4,
-        currentContent: 'line 4'
-      },
-      newContent: 'new line 2\nnew line 3\nnew line 4'
+      file_path: 'test.txt',
+      starting_position_line_number: 2,
+      starting_position_current_content: 'line 2',
+      end_position_line_number: 4,
+      end_position_current_content: 'line 4',
+      new_content: 'new line 2\nnew line 3\nnew line 4'
     });
 
     const parsedResult = JSON.parse(result);
@@ -89,16 +85,12 @@ describe('EditFileTool', () => {
 
   it('should return an error if the file is outside the working directory', async () => {
     const result = await editFileTool.execute({
-      file: '../outside.txt',
-      startingPosition: {
-        lineNumber: 2,
-        currentContent: 'line 2'
-      },
-      endPosition: {
-        lineNumber: 4,
-        currentContent: 'line 4'
-      },
-      newContent: 'new content'
+      file_path: '../outside.txt',
+      starting_position_line_number: 2,
+      starting_position_current_content: 'line 2',
+      end_position_line_number: 4,
+      end_position_current_content: 'line 4',
+      new_content: 'new content'
     });
 
     const parsedResult = JSON.parse(result);
@@ -110,16 +102,12 @@ describe('EditFileTool', () => {
     fsStatStub.rejects(new Error('File not found'));
 
     const result = await editFileTool.execute({
-      file: 'nonexistent.txt',
-      startingPosition: {
-        lineNumber: 2,
-        currentContent: 'line 2'
-      },
-      endPosition: {
-        lineNumber: 4,
-        currentContent: 'line 4'
-      },
-      newContent: 'new content'
+      file_path: 'nonexistent.txt',
+      starting_position_line_number: 2,
+      starting_position_current_content: 'line 2',
+      end_position_line_number: 4,
+      end_position_current_content: 'line 4',
+      new_content: 'new content'
     });
 
     const parsedResult = JSON.parse(result);
@@ -129,16 +117,12 @@ describe('EditFileTool', () => {
 
   it('should return an error if the starting line number is out of bounds', async () => {
     const result = await editFileTool.execute({
-      file: 'test.txt',
-      startingPosition: {
-        lineNumber: 10,
-        currentContent: 'line 10'
-      },
-      endPosition: {
-        lineNumber: 12,
-        currentContent: 'line 12'
-      },
-      newContent: 'new content'
+      file_path: 'test.txt',
+      starting_position_line_number: 10,
+      starting_position_current_content: 'line 10',
+      end_position_line_number: 12,
+      end_position_current_content: 'line 12',
+      new_content: 'new content'
     });
 
     const parsedResult = JSON.parse(result);
@@ -148,16 +132,12 @@ describe('EditFileTool', () => {
 
   it('should return an error if the ending line number is out of bounds', async () => {
     const result = await editFileTool.execute({
-      file: 'test.txt',
-      startingPosition: {
-        lineNumber: 2,
-        currentContent: 'line 2'
-      },
-      endPosition: {
-        lineNumber: 10,
-        currentContent: 'line 10'
-      },
-      newContent: 'new content'
+      file_path: 'test.txt',
+      starting_position_line_number: 2,
+      starting_position_current_content: 'line 2',
+      end_position_line_number: 10,
+      end_position_current_content: 'line 10',
+      new_content: 'new content'
     });
 
     const parsedResult = JSON.parse(result);
@@ -167,16 +147,12 @@ describe('EditFileTool', () => {
 
   it('should return an error if the ending line is before the starting line', async () => {
     const result = await editFileTool.execute({
-      file: 'test.txt',
-      startingPosition: {
-        lineNumber: 4,
-        currentContent: 'line 4'
-      },
-      endPosition: {
-        lineNumber: 2,
-        currentContent: 'line 2'
-      },
-      newContent: 'new content'
+      file_path: 'test.txt',
+      starting_position_line_number: 4,
+      starting_position_current_content: 'line 4',
+      end_position_line_number: 2,
+      end_position_current_content: 'line 2',
+      new_content: 'new content'
     });
 
     const parsedResult = JSON.parse(result);
@@ -186,16 +162,12 @@ describe('EditFileTool', () => {
 
   it('should return an error if the content at the starting line does not match', async () => {
     const result = await editFileTool.execute({
-      file: 'test.txt',
-      startingPosition: {
-        lineNumber: 2,
-        currentContent: 'wrong content'
-      },
-      endPosition: {
-        lineNumber: 4,
-        currentContent: 'line 4'
-      },
-      newContent: 'new content'
+      file_path: 'test.txt',
+      starting_position_line_number: 2,
+      starting_position_current_content: 'wrong content',
+      end_position_line_number: 4,
+      end_position_current_content: 'line 4',
+      new_content: 'new content'
     });
 
     const parsedResult = JSON.parse(result);
@@ -205,16 +177,12 @@ describe('EditFileTool', () => {
 
   it('should return an error if the content at the ending line does not match', async () => {
     const result = await editFileTool.execute({
-      file: 'test.txt',
-      startingPosition: {
-        lineNumber: 2,
-        currentContent: 'line 2'
-      },
-      endPosition: {
-        lineNumber: 4,
-        currentContent: 'wrong content'
-      },
-      newContent: 'new content'
+      file_path: 'test.txt',
+      starting_position_line_number: 2,
+      starting_position_current_content: 'line 2',
+      end_position_line_number: 4,
+      end_position_current_content: 'wrong content',
+      new_content: 'new content'
     });
 
     const parsedResult = JSON.parse(result);
@@ -226,16 +194,12 @@ describe('EditFileTool', () => {
     promptForApprovalStub.resolves(false);
 
     const result = await editFileTool.execute({
-      file: 'test.txt',
-      startingPosition: {
-        lineNumber: 2,
-        currentContent: 'line 2'
-      },
-      endPosition: {
-        lineNumber: 4,
-        currentContent: 'line 4'
-      },
-      newContent: 'new content'
+      file_path: 'test.txt',
+      starting_position_line_number: 2,
+      starting_position_current_content: 'line 2',
+      end_position_line_number: 4,
+      end_position_current_content: 'line 4',
+      new_content: 'new content'
     });
 
     const parsedResult = JSON.parse(result);
