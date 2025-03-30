@@ -1,0 +1,151 @@
+/**
+ * DomainRegistrationService.ts
+ * 
+ * A service for managing domain registrations, transfers and renewals
+ * with support for multiple TLDs and registrars.
+ */
+
+import { Observable, of, throwError } from 'rxjs';
+import { map, catchError, switchMap, retry } from 'rxjs/operators';
+import { inject, injectable } from 'inversify';
+import { Logger } from './common/Logger';
+import { HttpClient } from './http/HttpClient';
+import { CacheService } from './cache/CacheService';
+import { 
+  DomainAvailabilityResult, 
+  DomainRegistrationRequest,
+  DomainTransferRequest,
+  DomainInfo,
+  RegistrarCredentials,
+  PricingInfo,
+  TLD
+} from './models/Domain';
+import { TYPES } from './types';
+
+@injectable()
+export class DomainRegistrationService {
+  private readonly CACHE_TTL = 3600; // 1 hour in seconds
+  private readonly DEFAULT_RETRY_ATTEMPTS = 3;
+
+  constructor(
+    @inject(TYPES.HttpClient) private readonly httpClient: HttpClient,
+    @inject(TYPES.CacheService) private readonly cacheService: CacheService,
+    @inject(TYPES.Logger) private readonly logger: Logger,
+  ) {}
+  
+  /**
+   * Check availability for a single domain name
+   */
+  public checkAvailability(domainName: string): Observable<DomainAvailabilityResult> {
+    const cacheKey = `domain_availability:${domainName}`;
+    const cachedResult = this.cacheService.get<DomainAvailabilityResult>(cacheKey);
+    
+    if (cachedResult) {
+      return of(cachedResult);
+    }
+    
+    return this.httpClient.get<DomainAvailabilityResult>(`/api/domains/check/${domainName}`)
+      .pipe(
+        retry(this.DEFAULT_RETRY_ATTEMPTS),
+        map(result => {
+          this.cacheService.set(cacheKey, result, this.CACHE_TTL);
+          return result;
+        }),
+        catchError(error => {
+          this.logger.error(`Failed to check domain availability: ${domainName}`, error);
+          return throwError(() => new Error(`Failed to check domain availability: ${error.message}`));
+        })
+      );
+  }
+
+  /**
+   * Register a new domain
+   */
+  public registerDomain(request: DomainRegistrationRequest): Observable<DomainInfo> {
+    this.validateRegistrationRequest(request);
+    
+    return this.getPricing(request.domainName)
+      .pipe(
+        switchMap(pricing => {
+          if (!pricing.isAvailableForRegistration) {
+            return throwError(() => new Error(`Domain ${request.domainName} is not available for registration`));
+          }
+          
+          return this.httpClient.post<DomainInfo>('/api/domains/register', {
+            ...request,
+            estimatedPrice: pricing.registrationPrice,
+          });
+        }),
+        catchError(error => {
+          this.logger.error(`Failed to register domain: ${request.domainName}`, error);
+          return throwError(() => new Error(`Domain registration failed: ${error.message}`));
+        })
+      );
+  }
+
+  /**
+   * Initiate a domain transfer from another registrar
+   */
+  public transferDomain(request: DomainTransferRequest): Observable<DomainInfo> {
+    if (!request.authCode) {
+      return throwError(() => new Error('Auth code is required for domain transfer'));
+    }
+    
+    return this.httpClient.post<DomainInfo>('/api/domains/transfer', request)
+      .pipe(
+        catchError(error => {
+          this.logger.error(`Failed to initiate domain transfer: ${request.domainName}`, error);
+          return throwError(() => new Error(`Domain transfer failed: ${error.message}`));
+        })
+      );
+  }
+
+  /**
+   * Get pricing information for a domain
+   */
+  public getPricing(domainName: string): Observable<PricingInfo> {
+    const tld = this.extractTld(domainName);
+    const cacheKey = `domain_pricing:${tld}`;
+    const cachedPricing = this.cacheService.get<PricingInfo>(cacheKey);
+    
+    if (cachedPricing) {
+      return of(cachedPricing);
+    }
+    
+    return this.httpClient.get<PricingInfo>(`/api/domains/pricing/${encodeURIComponent(tld)}`)
+      .pipe(
+        map(pricing => {
+          this.cacheService.set(cacheKey, pricing, this.CACHE_TTL);
+          return pricing;
+        }),
+        catchError(error => {
+          this.logger.error(`Failed to fetch domain pricing for TLD: ${tld}`, error);
+          return throwError(() => new Error(`Failed to get pricing information: ${error.message}`));
+        })
+      );
+  }
+  
+  /**
+   * Helper method to extract TLD from domain name
+   */
+  private extractTld(domainName: string): TLD {
+    const parts = domainName.split('.');
+    if (parts.length < 2) {
+      throw new Error(`Invalid domain name: ${domainName}`);
+    }
+    return parts.slice(1).join('.') as TLD;
+  }
+  
+  /**
+   * Validate domain registration request
+   */
+  private validateRegistrationRequest(request: DomainRegistrationRequest): void {
+    if (!request.domainName || !request.registrantContact) {
+      throw new Error('Domain name and registrant contact are required');
+    }
+    
+    if (request.period < 1 || request.period > 10) {
+      throw new Error('Registration period must be between 1 and 10 years');
+    }
+  }
+}

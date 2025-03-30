@@ -1,144 +1,77 @@
 import { expect } from 'chai';
-import * as sinon from 'sinon';
-import chalk from 'chalk';
-import { BaseLLM } from '../../src/llm/base.js';
-import { AppConfig } from '../../src/config/config.js';
-import { CodeRenderer } from '../../src/utils/code-renderer.js';
-import { ProjectContext } from '../../src/utils/project-context.js';
 import { TaskExecutor } from '../../src/commands/interactive/task-executor.js';
-import { EditFileTool, WriteFileTool } from '../../src/llm/tools/index.js';
-import { LLMFactory } from '../../src/llm/factory.js';
+import { 
+  createMockedEditFileTool, 
+  createMockedWriteFileTool, 
+  createRealLLM, 
+  createMockedProjectContext, 
+  createCodeRenderer 
+} from '../helpers/llm-integration-test-helper.js';
+import { FileSourceLlmPreparation } from '../../src/llm/tools/file-source-llm-preparation.js';
 
 describe('LLM Integration Test with Real LLM', () => {
+  let fileSource: FileSourceLlmPreparation;
 
-  it('should work with a real LLM and real tools', async function() {
-    // This test might take longer than the default timeout
+  before(async () => {
+    fileSource = new FileSourceLlmPreparation([
+        {
+            path: 'test/fixtures/sample-file-to-edit.txt',
+            syntax: 'typescript',
+        },
+    ], process.cwd());
+  });
+
+  it('should work with a real LLM and mocked tools', async function() {
     this.timeout(30000);
 
-    // Create real tools with real execute methods
     const projectDir = process.cwd();
 
-    // Create a real approval function that always returns true
-    const realApproval = async (filePath: string, content: string): Promise<boolean> => {
-      console.log(`Real approval for ${filePath}`);
-      return true;
-    };
+    // Create mocked tools
+    const { tool: mockedEditFileTool, spy: editFileSpy } = createMockedEditFileTool(projectDir);
+    const { tool: mockedWriteFileTool, spy: writeFileSpy } = createMockedWriteFileTool(projectDir);
 
-    // Initialize real tools with real execute methods
-    const realEditFileTool = new EditFileTool(projectDir, realApproval);
-    const realWriteFileTool = new WriteFileTool(projectDir, realApproval);
+    // Create real LLM
+    const realLlm = await createRealLLM();
 
-    // Create spies for the execute methods to verify they are called
-    const editFileSpy = sinon.spy(realEditFileTool, 'execute');
-    const writeFileSpy = sinon.spy(realWriteFileTool, 'execute');
+    // Create code renderer and project context
+    const codeRenderer = createCodeRenderer();
+    const projectContext = createMockedProjectContext();
 
-    // Create a real config with Ollama configuration
-    const realConfig: AppConfig = {
-      llm: {
-        local: {
-          enabled: true,
-          provider: 'ollama',
-          model: 'mistral-small', // Use a model that's available in your Ollama installation
-          baseUrl: 'http://localhost:11434/api'
-        },
-        remote: {
-          enabled: false,
-          provider: 'openai',
-          model: 'gpt-4',
-          apiKey: ''
-        }
-      },
-      execution: {
-        parallel: false,
-        maxParallel: 2
-      },
-      output: {
-        colorEnabled: true,
-        syntaxHighlighting: true
-      },
-      prompts: {
-        directory: '.sirai/prompts'
-      },
-      chat: {
-        maxHistoryMessages: 20,
-        saveHistory: true
-      },
-      taskPlanning: {
-        enabled: true,
-        complexity: {
-          thresholds: {
-            medium: 40,
-            high: 70
-          },
-          weights: {
-            taskType: 0.2,
-            scopeSize: 0.3,
-            dependenciesCount: 0.2,
-            technologyComplexity: 0.2,
-            priorSuccessRate: 0.1
-          }
-        },
-        llmStrategy: {
-          thresholds: {
-            remote: 70,
-            hybrid: 40,
-            local: 0
-          }
-        }
-      }
-    };
+    // Create an instance of our custom task executor
+    const taskExecutor = new TaskExecutor(codeRenderer, projectContext);
 
-    try {
-      // Create dependencies for the task executor
-      const codeRenderer = new CodeRenderer({} as AppConfig);
-      const projectContext = {
-        getProjectContext: sinon.stub().returns({
-          projectRoot: process.cwd(),
-          currentDirectory: process.cwd()
-        })
-      } as unknown as ProjectContext;
+    // Define a simple task using the fixture
+    const taskPrompt = taskExecutor.createTaskPrompt();
+    const userInput = `Add endpoint to read dns zone in provided file.`;
 
-      // Get a real LLM with localOnly option to ensure we use Ollama
-      const realLlm = await LLMFactory.getBestLLM(realConfig, { localOnly: true });
-      console.log(`Using real LLM: ${realLlm.provider} with model: ${(realConfig.llm?.local as any).model}`);
-      
-      // Create an instance of our custom task executor
-      const realLlmTaskExecutor = new TaskExecutor(codeRenderer, projectContext);
+    // Add context for the LLM
+    const promptWithContext = `${taskPrompt}\n\n<user_input>${userInput}</user_input>\n${fileSource.renderForLlm(true)}`;
 
-      // Define a simple task
-      const taskPrompt = realLlmTaskExecutor.createTaskPrompt();
-      const userInput = 'Edit a new file called test.txt with the content "Hello, World!"';
+    // Execute the task
+    const response = await realLlm.generate(undefined, promptWithContext, {
+      tools: [mockedEditFileTool, mockedWriteFileTool],
+    });
 
-      const response = await realLlm.generate(undefined, `${taskPrompt}\n<user_input>${userInput}</user_input>`, {
-        tools: [realEditFileTool, realWriteFileTool],
-      });
+    expect(response).to.be.a('string');
+    expect(response.length).to.be.greaterThan(0);
 
-      expect(response).to.be.a('string');
-      expect(response).to.have.length.greaterThan(343330);
+    // Verify that at least one of the tools was called
+    expect(editFileSpy.called,'Expected either editFileSpy to be called, but neither was called.').to.be.true;
 
-      // Verify that the tools were called
-      expect(editFileSpy.called || writeFileSpy.called).to.be.true;
+    // If write file was called, verify the arguments
+    if (writeFileSpy.called) {
+      const writeArgs = writeFileSpy.firstCall.args[0];
+      expect(writeArgs).to.have.property('path');
+      expect(writeArgs).to.have.property('content');
+      console.log(`Write file was called with path: ${writeArgs.path}`);
+    }
 
-      if (writeFileSpy.called) {
-        // If write file was called, verify the arguments
-        const writeArgs = writeFileSpy.firstCall.args[0];
-        expect(writeArgs).to.have.property('path');
-        expect(writeArgs).to.have.property('content');
-        console.log(`Write file was called with path: ${writeArgs.path}`);
-      }
-
-      if (editFileSpy.called) {
-        // If edit file was called, verify the arguments
-        const editArgs = editFileSpy.firstCall.args[0];
-        expect(editArgs).to.have.property('path');
-        expect(editArgs).to.have.property('changes');
-        console.log(`Edit file was called with path: ${editArgs.path}`);
-      }
-
-    } catch (error) {
-      console.error(`Error in real LLM test: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      // Don't fail the test if the LLM is not available
-      this.skip();
+    // If edit file was called, verify the arguments
+    if (editFileSpy.called) {
+      const editArgs = editFileSpy.firstCall.args[0];
+      expect(editArgs).to.have.property('file_path');
+      expect(editArgs).to.have.property('new_content');
+      console.log(`Edit file was called with path: ${editArgs.file_path}`);
     }
   });
 });
