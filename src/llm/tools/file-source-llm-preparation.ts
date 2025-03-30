@@ -43,7 +43,7 @@ export class FileSourceLlmPreparation {
    */
   private addLineNumbers(content: string): string {
     const lines = content.split('\n');
-    return lines.map((line, index) => `${index + 1}:${line}`).join('\n');
+    return lines.map((line, index) => `${index + 1}: ${line}`).join('\n');
   }
 
   /**

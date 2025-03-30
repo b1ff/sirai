@@ -28,30 +28,19 @@ export class TaskExecutor {
     this.projectContext = projectContext;
   }
 
-  /**
-   * Creates a standard task prompt
-   * @param taskSpecification - The task specification
-   * @param fileContents - Optional file contents to include in the prompt
-   * @returns The formatted task prompt
-   */
-  public createTaskPrompt(taskSpecification: string, fileContents: string = ''): string {
+  public createTaskPrompt(): string {
     const projectDir = process.cwd();
 
     return `
-You are a precise task executor. Your job is to implement exactly what has been planned in the task specification, without deviation or creative additions unless explicitly required.
-
-<task_specification>
-${taskSpecification}
-</task_specification>
+You are a precise task executor working in the automation. 
+Your job is to implement exactly what has been planned in the task specification, without deviation or creative additions unless explicitly required.
 
 Current working directory: '${projectDir}'
 
 ## EXECUTION INSTRUCTIONS
 1. READ the task specification completely before beginning implementation
-2. FOLLOW all implementation steps in the exact order specified
-3. ADHERE strictly to any file paths, module names, and interface definitions provided
-4. IMPLEMENT code consistent with the existing project patterns and styles
-5. VERIFY your implementation against the provided testing criteria
+2. ADHERE strictly to any file paths, module names, and interface definitions provided
+3. IMPLEMENT code consistent with the existing project patterns and styles using provided tools
 
 ## IMPLEMENTATION GUIDELINES
 - USE the provided file system tools to write, or modify files
@@ -59,18 +48,10 @@ Current working directory: '${projectDir}'
 - MAINTAIN the exact interfaces specified to ensure correct integration
 - RESPECT any dependencies mentioned in the task specification
 - IF parts of the specification are ambiguous, make your best judgment based on the context provided and note your assumptions
-
-${fileContents}
 `;
   }
 
-  /**
-   * Executes a task using the LLM
-   * @param prompt - The task prompt
-   * @param llm - The LLM to use
-   * @returns Whether the task was executed successfully
-   */
-  public async executeTask(prompt: string, llm: BaseLLM): Promise<boolean> {
+  public async executeTask(prompt: string, userInput: string, llm: BaseLLM): Promise<boolean> {
     try {
       console.log(chalk.blue('\nExecuting task...'));
 
@@ -81,9 +62,7 @@ ${fileContents}
       const projectDir = this.projectContext.getProjectContext().projectRoot;
 
       // Execute the task with function calling enabled
-      await llm.generateStream(prompt, (chunk) => {
-        spinner.info(chunk);
-      }, {
+      const response = await llm.generate(undefined, `${prompt}\n${userInput}`, {
         // Enable function calling
         tools: [
           new EditFileTool(projectDir),
@@ -104,6 +83,9 @@ ${fileContents}
       });
 
       spinner.stop();
+      console.log(chalk.green('\nTask executed successfully'));
+      console.log(chalk.blue('\nAssistant:'));
+      console.log(response)
       return true;
     } catch (error) {
       console.error(chalk.red(`Error executing task: ${error instanceof Error ? error.message : 'Unknown error'}`));
@@ -151,11 +133,10 @@ ${fileContents}
       }
 
       // Create a task-specific prompt using the shared method
-      const taskPrompt = this.createTaskPrompt(subtask.taskSpecification, fileContents);
+      const taskPrompt = this.createTaskPrompt();
 
-      console.log(taskPrompt);
-
-      const success = await this.executeTask(taskPrompt, llm);
+      const userInput = `${subtask.taskSpecification}\n${fileContents}`;
+      const success = await this.executeTask(taskPrompt, userInput, llm);
       if (!success) {
         return false;
       }

@@ -98,7 +98,7 @@ export class ConversationManager {
       
       // Generate and stream the response
       let response = '';
-      await activeLLM.generateStream(prompt, (chunk) => {
+      await activeLLM.generateStream(prompt, input, (chunk) => {
         response += chunk;
         const renderedChunk = this.codeRenderer.renderCodeBlocks(chunk);
         process.stdout.write(renderedChunk);

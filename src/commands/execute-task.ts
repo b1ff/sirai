@@ -99,15 +99,16 @@ export async function executeTaskDirectly(options: CommandOptions, config: AppCo
     // Pre-load file contents if filesToRead is provided
     let fileContents = '';
     if (filesToRead && filesToRead.length > 0) {
-      console.log(chalk.blue(`Reading ${filesToRead.length} file(s) for context...`));
+      console.log(chalk.blue(`Reading ${filesToRead.map(f => f.path).join(', ')} file(s) for context...`));
       const filePreparation = new FileSourceLlmPreparation(filesToRead, projectDir);
-      fileContents = await filePreparation.renderForLlm(false); // false to exclude line numbers
+      fileContents = await filePreparation.renderForLlm(true);
     }
 
     // Create a task-specific prompt using the shared method
-    const taskPrompt = taskExecutor.createTaskPrompt(taskSpecification, fileContents);
+    const taskPrompt = taskExecutor.createTaskPrompt();
 
-    const success = await taskExecutor.executeTask(taskPrompt, llm);
+    const userInput = `${taskSpecification}\n${fileContents}`;
+    const success = await taskExecutor.executeTask(taskPrompt, userInput, llm);
 
     if (success) {
       console.log(chalk.green('\nTask executed successfully'));

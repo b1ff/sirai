@@ -49,23 +49,11 @@ export abstract class BaseLLM {
    */
   abstract initialize(): Promise<void>;
 
-  /**
-   * Generates a response to a prompt
-   * @param prompt - The prompt to send to the LLM
-   * @param options - Additional options
-   * @returns The generated response
-   */
-  abstract generate(prompt: string, userRequest: string, options?: LLMOptions): Promise<string>;
+  abstract generate(prompt: string | undefined, userRequest: string, options?: LLMOptions): Promise<string>;
 
-  /**
-   * Generates a response to a prompt with streaming
-   * @param prompt - The prompt to send to the LLM
-   * @param onChunk - Callback function for each chunk of the response
-   * @param options - Additional options
-   * @returns The complete generated response
-   */
   abstract generateStream(
-    prompt: string, 
+    systemInstructions: string | undefined,
+    userInput: string,
     onChunk: ChunkCallback, 
     options?: LLMOptions
   ): Promise<string>;

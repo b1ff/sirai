@@ -120,7 +120,7 @@ export async function executePromptFromFile(
     spinner.stop();
     
     let response = '';
-    await llm.generateStream(fullPrompt, (chunk) => {
+    await llm.generateStream(undefined, fullPrompt,  (chunk) => {
       response += chunk;
       const renderedChunk = codeRenderer.renderCodeBlocks(chunk);
       process.stdout.write(renderedChunk);

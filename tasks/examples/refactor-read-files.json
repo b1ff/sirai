@@ -1,5 +1,5 @@
 {
-  "taskSpecification": "Refactor read-files tool so it works with multiple files.",
+  "taskSpecification": "Refactor read-files tool so it works with multiple files. Schema should be updated as needed, only multiple files should be left and in description should be an instructions to specify multiple files at once.",
   "filesToRead": [
     {
       "path": "src/llm/tools/base.ts",

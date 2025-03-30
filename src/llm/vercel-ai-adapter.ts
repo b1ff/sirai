@@ -33,13 +33,14 @@ export class VercelAIAdapter extends BaseLLM {
    * @param options - Additional options
    * @returns The generated response
    */
-  async generate(prompt: string, userRequest: string, options?: LLMOptions): Promise<string> {
+  async generate(prompt: string | undefined, userRequest: string, options?: LLMOptions): Promise<string> {
     try {
       // Use Vercel AI SDK generateText function
       const result = await generateText({
         model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
         system: prompt,
         prompt: userRequest,
+        toolChoice: 'auto',
         ...this.aiProvider.adaptOptions(options),
       });
 
@@ -53,30 +54,22 @@ export class VercelAIAdapter extends BaseLLM {
     }
   }
 
-  /**
-   * Generates a response to a prompt with streaming
-   * @param prompt - The prompt to send to the LLM
-   * @param onChunk - Callback function for each chunk of the response
-   * @param options - Additional options
-   * @returns The complete generated response
-   */
   async generateStream(
-    prompt: string, 
+    systemInstructions: string | undefined,
+    userInput: string,
     onChunk: ChunkCallback, 
     options?: LLMOptions
   ): Promise<string> {
     let fullResponse = '';
 
     try {
-      // Use Vercel AI SDK streamText function
       const stream = streamText({
         model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
-        prompt,
+        system: systemInstructions,
+        prompt: userInput,
         ...this.aiProvider.adaptOptions(options),
       });
 
-      // Process the stream
-      // The stream object has a 'textStream' property that is an async iterable
       for await (const chunk of stream.textStream) {
         if (chunk) {
           fullResponse += chunk;
