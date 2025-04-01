@@ -3,6 +3,7 @@ import { BaseVercelAIProvider } from './base.js';
 import { OpenAIProvider, OpenAIProviderConfig } from './openai.js';
 import { AnthropicProvider, AnthropicProviderConfig } from './anthropic.js';
 import { OllamaProvider, OllamaProviderConfig } from './ollama.js';
+import { GoogleProvider, GoogleProviderConfig } from './google.js';
 
 /**
  * Factory for creating Vercel AI provider instances
@@ -28,6 +29,11 @@ export class VercelAIFactory {
         return new AnthropicProvider(config as AnthropicProviderConfig);
       case 'ollama':
         return new OllamaProvider(config as OllamaProviderConfig);
+      case 'google':
+        if (!config.apiKey) {
+          throw new Error('Google AI API key is required in configuration');
+        }
+        return new GoogleProvider(config as GoogleProviderConfig);
       default:
         throw new Error(`Unsupported Vercel AI provider: ${provider}`);
     }

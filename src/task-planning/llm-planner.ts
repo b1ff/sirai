@@ -95,7 +95,7 @@ export class LLMPlanner {
    * @returns True if the provider is remote
    */
   private isRemoteProvider(provider: string): boolean {
-    const remoteProviders = ['openai', 'anthropic'];
+    const remoteProviders = ['openai', 'anthropic', 'google'];
     return remoteProviders.includes(provider.toLowerCase());
   }
 
