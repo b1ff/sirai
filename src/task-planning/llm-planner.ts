@@ -12,6 +12,7 @@ export interface LLMPlannerConfig {
   maxContextSize?: number; // Maximum context size in characters
   chunkSize?: number; // Size of chunks for context management
   preferredProvider?: string; // Preferred LLM provider (openai, claude, ollama)
+  taskType?: string; // Type of task (planning, coding, etc.)
   debug?: boolean; // Enable debug mode
 }
 
@@ -21,7 +22,8 @@ export interface LLMPlannerConfig {
 const DEFAULT_CONFIG: LLMPlannerConfig = {
   maxContextSize: 8000, // Default maximum context size
   chunkSize: 1000, // Default chunk size
-  preferredProvider: 'openai' // Default to OpenAI
+  preferredProvider: 'anthropic', // Default to Anthropic
+  taskType: 'planning' // Default task type
 };
 
 /**
@@ -44,6 +46,7 @@ export class LLMPlanner {
       maxContextSize: config.maxContextSize || DEFAULT_CONFIG.maxContextSize,
       chunkSize: config.chunkSize || DEFAULT_CONFIG.chunkSize,
       preferredProvider: config.preferredProvider || DEFAULT_CONFIG.preferredProvider,
+      taskType: config.taskType || DEFAULT_CONFIG.taskType,
       debug: config.debug || false
     };
     this.debug = this.config.debug || false;
@@ -58,27 +61,31 @@ export class LLMPlanner {
       return this.llm;
     }
     try {
-      // Use the preferred provider if specified
-      if (this.config.preferredProvider) {
-        const providerType = this.isRemoteProvider(this.config.preferredProvider) ? 'remote' : 'local';
+      // Check if we have a task-specific provider configuration
+      const taskType = this.config.taskType || 'default';
+      const taskPlanningConfig = this.appConfig.taskPlanning;
 
-        // Override the provider in the config
-        const configCopy = { ...this.appConfig };
-        if (!configCopy.llm) {
-          configCopy.llm = {};
+      if (taskPlanningConfig?.providerConfig && taskPlanningConfig.providerConfig[taskType]) {
+        // Use the provider specified for this task type
+        const providerConfig = taskPlanningConfig.providerConfig[taskType];
+        this.llm = LLMFactory.createLLMByProvider(
+          this.appConfig, 
+          providerConfig.provider,
+          providerConfig.model
+        );
+      }
+      // Fallback to preferredProvider if specified and no task-specific provider is found
+      else if (this.config.preferredProvider || taskPlanningConfig?.preferredProvider) {
+        const preferredProvider = this.config.preferredProvider || taskPlanningConfig?.preferredProvider;
+        if (preferredProvider) {
+          this.llm = LLMFactory.createLLMByProvider(this.appConfig, preferredProvider);
+        } else {
+          // Use the best available LLM as a last resort
+          this.llm = await LLMFactory.getBestLLM(this.appConfig);
         }
-
-        if (!configCopy.llm[providerType]) {
-          configCopy.llm[providerType] = {};
-        }
-
-        configCopy.llm[providerType].provider = this.config.preferredProvider;
-        configCopy.llm[providerType].enabled = true;
-
-        this.llm = LLMFactory.createLLM(configCopy, providerType);
       } else {
         // Use the best available LLM
-        this.llm = await LLMFactory.getBestLLM(this.appConfig, { preferLocal: false });
+        this.llm = await LLMFactory.getBestLLM(this.appConfig);
       }
 
       await this.llm.initialize();

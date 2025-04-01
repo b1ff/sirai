@@ -14,12 +14,15 @@ import { FileSourceLlmPreparation } from '../llm/tools/file-source-llm-preparati
  * Interface for command options
  */
 interface CommandOptions {
-  local?: boolean;
-  remote?: boolean;
+  local?: boolean; // Deprecated: Use provider instead
+  remote?: boolean; // Deprecated: Use provider instead
+  provider?: string; // Specific provider to use
+  preferredProvider?: string; // Preferred provider to use if available
   prompt?: string;
   debug?: boolean;
   task?: string;
   taskFile?: string;
+  taskType?: string;
   [key: string]: any;
 }
 
@@ -71,15 +74,34 @@ export async function executeTaskDirectly(options: CommandOptions, config: AppCo
   // Initialize LLM
   const spinner = ora('Initializing LLM...').start();
 
-  // Get LLM options
-  const llmOptions = {
-    localOnly: options.local,
-    remoteOnly: options.remote,
-    preferLocal: !options.remote
-  };
+  // Get task type
+  const taskType = options.taskType || 'default';
 
   try {
-    const llm = await LLMFactory.getBestLLM(config, llmOptions);
+    let llm;
+
+    // Check if we have a task-specific provider configuration
+    if (config.taskPlanning?.providerConfig && config.taskPlanning.providerConfig[taskType]) {
+      // Use the provider specified for this task type
+      const providerConfig = config.taskPlanning.providerConfig[taskType];
+      llm = LLMFactory.createLLMByProvider(
+        config, 
+        providerConfig.provider,
+        providerConfig.model
+      );
+    } 
+    // Fallback to preferredProvider if specified
+    else if (config.taskPlanning?.preferredProvider) {
+      llm = LLMFactory.createLLMByProvider(config, config.taskPlanning.preferredProvider);
+    }
+    // Otherwise use the best available LLM based on options
+    else {
+      const llmOptions = {
+        providerName: options.provider,
+        preferredProvider: options.preferredProvider
+      };
+      llm = await LLMFactory.getBestLLM(config, llmOptions);
+    }
     spinner.succeed(`Using ${llm.provider}`);
 
     // Create code renderer and project context

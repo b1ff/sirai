@@ -52,7 +52,8 @@ export class ContextData {
     // Create task planner with debug option if provided
     const taskPlanningConfig = {
       ...config.taskPlanning,
-      debug: options.debug
+      debug: options.debug,
+      taskType: options.taskType || 'planning'
     };
     this.taskPlanner = new LLMPlanner(config, taskPlanningConfig);
 

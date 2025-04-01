@@ -76,16 +76,15 @@ export class InteractiveSession {
       // Get LLM options
       const options = contextData.getOptions();
       const llmOptions = {
-        localOnly: options.local,
-        remoteOnly: options.remote,
-        preferLocal: !options.remote
+        providerName: options.provider,
+        preferredProvider: options.preferredProvider
       };
 
       const llm = await LLMFactory.getBestLLM(contextData.getConfig(), llmOptions);
       contextData.setLLM(llm);
       spinner.succeed(`Using ${llm.provider}`);
     } catch (error) {
-      console.error(chalk.red('Error initializing LLM'));
+      console.error(chalk.red('Error initializing LLM'), error);
     }
   }
 }

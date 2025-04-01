@@ -13,8 +13,10 @@ import { BaseLLM } from '../llm/base.js';
  * Interface for command options
  */
 export interface CommandOptions {
-  local?: boolean;
-  remote?: boolean;
+  local?: boolean; // Deprecated: Use provider instead
+  remote?: boolean; // Deprecated: Use provider instead
+  provider?: string; // Specific provider to use
+  preferredProvider?: string; // Preferred provider to use if available
   execute?: boolean;
   [key: string]: any;
 }
@@ -42,14 +44,13 @@ export async function executePromptFromFile(
   const codeRenderer = new CodeRenderer(config);
   const projectContext = new ProjectContext(config);
   const promptManager = new PromptManager(config);
-  
+
   // Get LLM options
   const llmOptions = {
-    localOnly: options.local,
-    remoteOnly: options.remote,
-    preferLocal: !options.remote
+    providerName: options.provider,
+    preferredProvider: options.preferredProvider
   };
-  
+
   // Try to get the LLM
   let llm: BaseLLM;
   try {
@@ -64,7 +65,7 @@ export async function executePromptFromFile(
     }
     return;
   }
-  
+
   // Load the prompt file
   let promptContent: string;
   try {
@@ -73,11 +74,11 @@ export async function executePromptFromFile(
     if (!fs.existsSync(filePath)) {
       // Try to load from prompt manager
       const loadedPrompt = promptManager.loadPrompt(promptFile);
-      
+
       if (!loadedPrompt) {
         throw new Error(`File not found: ${promptFile}`);
       }
-      
+
       promptContent = loadedPrompt;
       console.log(chalk.yellow(`Loaded prompt: ${promptFile}`));
     } else {
@@ -92,42 +93,42 @@ export async function executePromptFromFile(
     }
     return;
   }
-  
+
   // Process the prompt to replace prompt references
   promptContent = promptManager.processMessage(promptContent);
-  
+
   // Get project context
   const contextString = projectContext.createContextString();
-  
+
   // Create the full prompt with context
   let fullPrompt = '';
-  
+
   // Add context if available
   if (contextString) {
     fullPrompt += `${contextString}\n`;
   }
-  
+
   // Add the prompt content
   fullPrompt += promptContent;
-  
+
   // Generate response
   try {
     console.log(chalk.blue('\nGenerating response...'));
-    
+
     const spinner = ora('Thinking...').start();
-    
+
     // Start streaming response
     spinner.stop();
-    
+
     let response = '';
     await llm.generateStream(undefined, fullPrompt,  (chunk) => {
       response += chunk;
       const renderedChunk = codeRenderer.renderCodeBlocks(chunk);
       process.stdout.write(renderedChunk);
     });
-    
+
     console.log('\n');
-    
+
     // Extract and execute code blocks if requested
     if (options.execute) {
       await executeCodeBlocks(codeRenderer.extractCodeBlocks(response));
@@ -150,14 +151,14 @@ async function executeCodeBlocks(codeBlocks: CodeBlock[]): Promise<void> {
     console.log(chalk.yellow('No code blocks to execute'));
     return;
   }
-  
+
   console.log(chalk.yellow(`\nFound ${codeBlocks.length} code block(s) to execute`));
-  
+
   for (let i = 0; i < codeBlocks.length; i++) {
     const { code, language } = codeBlocks[i];
-    
+
     console.log(chalk.cyan(`\nExecuting code block ${i + 1} (${language}):`));
-    
+
     try {
       // For now, we'll just log the code that would be executed
       // In a real implementation, we would execute the code based on the language

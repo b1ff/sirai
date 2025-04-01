@@ -82,6 +82,32 @@ export async function createRealLLM(): Promise<BaseLLM> {
         provider: 'openai',
         model: 'gpt-4',
         apiKey: ''
+      },
+      providers: {
+        'ollama': {
+          enabled: true,
+          provider: 'ollama',
+          model: 'mistral-small',
+          baseUrl: 'http://localhost:11434/api'
+        },
+        'openai': {
+          enabled: false,
+          provider: 'openai',
+          model: 'gpt-4',
+          apiKey: ''
+        },
+        'anthropic': {
+          enabled: false,
+          provider: 'anthropic',
+          model: 'claude-3-7-sonnet-latest',
+          apiKey: ''
+        },
+        'google': {
+          enabled: false,
+          provider: 'google',
+          model: 'gemini-2.5-pro-exp-03-25',
+          apiKey: ''
+        }
       }
     },
     execution: {
@@ -101,6 +127,21 @@ export async function createRealLLM(): Promise<BaseLLM> {
     },
     taskPlanning: {
       enabled: true,
+      preferredProvider: 'ollama',
+      providerConfig: {
+        'planning': {
+          provider: 'ollama',
+          model: 'mistral-small'
+        },
+        'coding': {
+          provider: 'ollama',
+          model: 'mistral-small'
+        },
+        'default': {
+          provider: 'ollama',
+          model: 'mistral-small'
+        }
+      },
       complexity: {
         thresholds: {
           medium: 40,
@@ -124,7 +165,7 @@ export async function createRealLLM(): Promise<BaseLLM> {
     }
   };
 
-  return await LLMFactory.getBestLLM(config, { localOnly: true });
+  return await LLMFactory.getBestLLM(config, { providerName: 'ollama' });
 }
 
 /**
