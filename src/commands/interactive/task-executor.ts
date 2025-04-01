@@ -55,6 +55,9 @@ Current working directory: '${projectDir}'
     try {
       console.log(chalk.blue('\nExecuting task...'));
 
+      // Display provider and model information
+      console.log(chalk.cyan(`Using ${llm.getProviderWithModel()}`));
+
       // Create a spinner
       const spinner = ora('Thinking...').start();
 
@@ -116,6 +119,9 @@ Current working directory: '${projectDir}'
       const bIndex = executionOrder.indexOf(b.id);
       return aIndex - bIndex;
     });
+
+    // Display provider and model information
+    console.log(chalk.cyan(`Using ${llm.getProviderWithModel()} for all tasks`));
 
     // Execute each subtask
     for (let i = 0; i < orderedSubtasks.length; i++) {

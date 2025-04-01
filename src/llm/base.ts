@@ -45,6 +45,14 @@ export abstract class BaseLLM {
   }
 
   /**
+   * Gets the provider and model information as a string
+   * @returns A string in the format "provider:model" or just "provider" if model info is not available
+   */
+  getProviderWithModel(): string {
+    return this.provider;
+  }
+
+  /**
    * Initializes the LLM
    */
   abstract initialize(): Promise<void>;

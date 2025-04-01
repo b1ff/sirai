@@ -27,6 +27,14 @@ export class VercelAIAdapter extends BaseLLM {
   }
 
   /**
+   * Gets the provider and model information as a string
+   * @returns A string in the format "provider:model"
+   */
+  override getProviderWithModel(): string {
+    return `${this.provider}:${this.aiProvider.getModel()}`;
+  }
+
+  /**
    * Generates a response to a prompt
    * @param systemInstructions - The system instructions to send to the LLM
    * @param userInput - The user input

@@ -102,7 +102,7 @@ export async function executeTaskDirectly(options: CommandOptions, config: AppCo
       };
       llm = await LLMFactory.getBestLLM(config, llmOptions);
     }
-    spinner.succeed(`Using ${llm.provider}`);
+    spinner.succeed(`Using ${llm.getProviderWithModel()}`);
 
     // Create code renderer and project context
     const codeRenderer = new CodeRenderer(config);
