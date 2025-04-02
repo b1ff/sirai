@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
 import { BaseLLM } from '../../llm/base.js';
-import { CodeRenderer } from '../../utils/code-renderer.js';
+import { MarkdownRenderer } from '../../utils/markdown-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
 import { WriteFileTool, EditFileTool, PatchFileTool } from '../../llm/tools/index.js';
 import { FileToRead } from '../../task-planning/schemas.js';
@@ -12,19 +12,19 @@ import { FileSourceLlmPreparation } from '../../llm/tools/file-source-llm-prepar
  * Class that executes tasks using the LLM
  */
 export class TaskExecutor {
-  private codeRenderer: CodeRenderer;
+  private markdownRenderer: MarkdownRenderer;
   private projectContext: ProjectContext;
 
   /**
    * Creates a new task executor
-   * @param codeRenderer - The code renderer
+   * @param markdownRenderer - The markdown renderer
    * @param projectContext - The project context
    */
   constructor(
-    codeRenderer: CodeRenderer,
+    markdownRenderer: MarkdownRenderer,
     projectContext: ProjectContext
   ) {
-    this.codeRenderer = codeRenderer;
+    this.markdownRenderer = markdownRenderer;
     this.projectContext = projectContext;
   }
 
@@ -91,7 +91,7 @@ Current working directory: '${projectDir}'
       spinner.stop();
       console.log(chalk.green('\nTask executed successfully'));
       console.log(chalk.blue('\nAssistant:'));
-      console.log(response)
+      process.stdout.write(this.markdownRenderer.render(response));
       return true;
     } catch (error) {
       console.error(chalk.red(`Error executing task: ${error instanceof Error ? error.message : 'Unknown error'}`));
@@ -174,7 +174,7 @@ The files have been created/modified as requested.`;
 
     // Display the summary
     console.log(chalk.blue('\nAssistant:'));
-    process.stdout.write(this.codeRenderer.renderCodeBlocks(summary));
+    process.stdout.write(this.markdownRenderer.render(summary));
     console.log('\n');
 
     return true;

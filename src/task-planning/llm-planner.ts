@@ -1,6 +1,7 @@
 import { BaseLLM } from '../llm/base.js';
 import { AppConfig, LLMFactory } from '../llm/factory.js';
 import { FileSystemUtils } from './file-system-utils.js';
+import { MarkdownRenderer } from '../utils/markdown-renderer.js';
 import { ComplexityLevel, ContextProfile, LLMType, Subtask, TaskPlan } from './schemas.js';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -43,13 +44,14 @@ export class LLMPlanner {
   private appConfig: AppConfig;
   private llm: BaseLLM | null = null;
   private debug: boolean = false;
+  private markdownRenderer?: MarkdownRenderer;
 
   /**
    * Constructor
    * @param appConfig - Application configuration
    * @param config - Configuration for the LLM planner or task planning configuration
    */
-  constructor(appConfig: AppConfig, config: Partial<LLMPlannerConfig> | any = {}) {
+  constructor(appConfig: AppConfig, config: Partial<LLMPlannerConfig> | any = {}, markdownRenderer?: MarkdownRenderer) {
     this.appConfig = appConfig;
     this.config = {
       maxContextSize: config.maxContextSize || DEFAULT_CONFIG.maxContextSize,
@@ -59,6 +61,7 @@ export class LLMPlanner {
       debug: config.debug || false
     };
     this.debug = this.config.debug || false;
+    this.markdownRenderer = markdownRenderer;
   }
 
   /**
@@ -158,8 +161,12 @@ export class LLMPlanner {
       return confirmation === 'Yes';
     })
 
-    // Wrap tools with debug logging if debug is enabled
-    const tools = [readFileTool, listFilesTool, extractPlanTool, askUserTool, runProcessTool];
+    const tools = [
+      readFileTool,
+      listFilesTool,
+      extractPlanTool,
+      askUserTool,
+    ];
 
     // Get directory structure
     let filesStructure = 'Could not retrieve directory structure.'; // Default message
@@ -254,8 +261,18 @@ After the plan is saved successfully, provide a concise summary of your understa
 
     // 4. Generate task plan using LLM with tools
     try {
-      // Generate response using the regular LLM
-      await this.llm.generate(prompt, request, { tools });
+      // Generate response using the regular LLM with streaming callback for rendering responses
+      await this.llm.generate(prompt, request, { 
+        tools,
+        onTokenStream: (token: string) => {
+          // If markdown renderer is available, render the token
+          if (this.markdownRenderer) {
+            process.stdout.write(this.markdownRenderer.render(token));
+          } else {
+            process.stdout.write(token);
+          }
+        }
+      });
 
       // Get the saved plan from the tool
       const savedPlan = extractPlanTool.getSavedPlan();
@@ -440,6 +457,11 @@ After the plan is saved successfully, provide a concise summary of your understa
 
     explanation += `${executionOrderIndices.join(' → ')}\n`;
 
+    // If markdown renderer is available, use it to render the explanation
+    if (this.markdownRenderer) {
+      return this.markdownRenderer.render(explanation);
+    }
+    
     return explanation;
   }
 }

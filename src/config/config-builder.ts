@@ -113,6 +113,7 @@ export class ConfigBuilder {
       output: {
         colorEnabled: true,
         syntaxHighlighting: true,
+        markdownRendering: true,
       },
       prompts: {
         directory: this.promptsDir,
@@ -192,6 +193,13 @@ export class ConfigBuilder {
 
       const configYaml = fs.readFileSync(this.configFile, 'utf8');
       const config = yaml.load(configYaml) as AppConfig;
+
+      // Ensure output configuration has markdownRendering property
+      if (!config.output) {
+        config.output = this.getDefaultConfig().output;
+      } else if (config.output.markdownRendering === undefined) {
+        config.output.markdownRendering = true;
+      }
 
       // Convert string values to LLMType enum values for llmStrategy.overrides
       if (config.taskPlanning?.llmStrategy?.overrides) {

@@ -2,6 +2,7 @@ import { BaseLLM } from '../../llm/base.js';
 import { LLMPlanner } from '../../task-planning/index.js';
 import { AppConfig } from '../../config/config.js';
 import { CodeRenderer } from '../../utils/code-renderer.js';
+import { MarkdownRenderer } from '../../utils/markdown-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
 import { PromptManager } from '../../utils/prompt-manager.js';
 import { ChatHistoryManager } from '../../utils/chat-history-manager.js';
@@ -29,6 +30,7 @@ export class ContextData {
   private config: AppConfig;
   private initialPrompt: string;
   private isActive: boolean;
+  private markdownRenderer: MarkdownRenderer;
 
   constructor(options: CommandOptions, config: AppConfig) {
     this.projectContext = new Map<string, any>();
@@ -45,6 +47,7 @@ export class ContextData {
 
     // Initialize utilities
     const codeRenderer = new CodeRenderer(config);
+    this.markdownRenderer = new MarkdownRenderer(config, codeRenderer);
     const projectContext = new ProjectContext(config);
     const promptManager = new PromptManager(config);
     const chatHistoryManager = new ChatHistoryManager(config);
@@ -63,7 +66,7 @@ export class ContextData {
       promptManager,
       chatHistoryManager,
       config,
-      projectContext
+      projectContext,
     );
 
     this.commandHandler = new CommandHandler(
@@ -73,8 +76,8 @@ export class ContextData {
     );
 
     this.taskExecutor = new TaskExecutor(
-      codeRenderer,
-      projectContext
+      new MarkdownRenderer(config, codeRenderer),
+      projectContext,
     );
 
     // Add project context
@@ -85,6 +88,10 @@ export class ContextData {
   // Getters and setters
   public getConversationManager(): ConversationManager {
     return this.conversationManager;
+  }
+
+  public getMarkdownRenderer(): MarkdownRenderer {
+    return this.markdownRenderer;
   }
 
   public getCommandHandler(): CommandHandler {

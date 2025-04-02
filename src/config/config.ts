@@ -43,6 +43,7 @@ export interface ExecutionConfig {
 export interface OutputConfig {
   colorEnabled: boolean;
   syntaxHighlighting: boolean;
+  markdownRendering: boolean;
 }
 
 /**

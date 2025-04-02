@@ -9,6 +9,7 @@ import { ProjectContext } from '../utils/project-context.js';
 import { TaskExecutor } from './interactive/task-executor.js';
 import { Subtask, FileToRead } from '../task-planning/schemas.js';
 import { FileSourceLlmPreparation } from '../llm/tools/file-source-llm-preparation.js';
+import { MarkdownRenderer } from '../utils/markdown-renderer.js';
 
 /**
  * Interface for command options
@@ -109,7 +110,7 @@ export async function executeTaskDirectly(options: CommandOptions, config: AppCo
     const projectContext = new ProjectContext(config);
 
     // Create task executor
-    const taskExecutor = new TaskExecutor(codeRenderer, projectContext);
+    const taskExecutor = new TaskExecutor(new MarkdownRenderer(config, codeRenderer), projectContext);
 
     // Execute the task
     console.log(chalk.blue('\nExecuting task...'));

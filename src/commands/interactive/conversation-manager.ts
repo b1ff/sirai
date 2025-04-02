@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { BaseLLM } from '../../llm/base.js';
 import { CodeRenderer } from '../../utils/code-renderer.js';
+import { MarkdownRenderer } from '../../utils/markdown-renderer.js';
 import { PromptManager } from '../../utils/prompt-manager.js';
 import { ChatHistoryManager, ChatMessage } from '../../utils/chat-history-manager.js';
 import { AppConfig } from '../../config/config.js';
@@ -12,6 +13,7 @@ import { ConversationContext } from './types.js';
  */
 export class ConversationManager {
   private codeRenderer: CodeRenderer;
+  private markdownRenderer: MarkdownRenderer;
   private promptManager: PromptManager;
   private chatHistoryManager: ChatHistoryManager;
   private config: AppConfig;
@@ -39,6 +41,9 @@ export class ConversationManager {
     this.chatHistoryManager = chatHistoryManager;
     this.config = config;
     this.projectContext = projectContext;
+    
+    // Initialize the markdown renderer
+    this.markdownRenderer = new MarkdownRenderer(config, codeRenderer);
     
     // Get project context
     this.contextString = this.projectContext.createContextString();
@@ -100,7 +105,8 @@ export class ConversationManager {
       let response = '';
       await activeLLM.generateStream(prompt, input, (chunk) => {
         response += chunk;
-        const renderedChunk = this.codeRenderer.renderCodeBlocks(chunk);
+        // Use markdown renderer instead of just code block rendering
+        const renderedChunk = this.markdownRenderer.render(chunk);
         process.stdout.write(renderedChunk);
       });
       

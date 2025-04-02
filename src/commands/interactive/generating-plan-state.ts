@@ -37,10 +37,11 @@ export class GeneratingPlanState implements State {
       // Store the task plan in context data
       contextData.setCurrentPlan(taskPlan);
 
-      // Present the plan to the user
+      // Present the plan to the user using MarkdownRenderer
       spinner.stop();
       console.log(chalk.cyan('\n--- Task Plan ---'));
-      console.log(taskPlanExplanation);
+      const markdownRenderer = contextData.getMarkdownRenderer();
+      console.log(markdownRenderer.render(taskPlanExplanation));
       console.log(chalk.cyan('--- End of Task Plan ---\n'));
 
       return StateType.REVIEWING_PLAN;
