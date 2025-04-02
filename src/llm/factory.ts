@@ -12,6 +12,15 @@ export interface AppConfig {
       [key: string]: LLMProviderConfig;
     };
   };
+  taskPlanning?: {
+    preferredProvider?: string;
+    providerConfig?: {
+      [taskType: string]: {
+        provider: string;
+        model?: string;
+      };
+    };
+  };
   [key: string]: any;
 }
 
@@ -30,6 +39,7 @@ export interface LLMProviderConfig extends LLMConfig {
 export interface LLMSelectionOptions {
   preferredProvider?: string;
   providerName?: string;
+  taskType?: string;
 }
 
 /**
@@ -153,23 +163,52 @@ export class LLMFactory {
    * @returns The best available LLM
    */
   static async getBestLLM(config: AppConfig, options: LLMSelectionOptions = {}): Promise<BaseLLM> {
-    const { preferredProvider, providerName } = options;
+    const { preferredProvider, providerName, taskType } = options;
 
     // If a specific provider is requested, use it
     if (providerName) {
       return this.createLLMByProvider(config, providerName);
     }
 
-    // If a preferred provider is specified, try to use it
-    if (preferredProvider) {
+    // If a task type is specified, check if there's a specific provider for it in taskPlanning.providerConfig
+    if (taskType && config.taskPlanning?.providerConfig?.[taskType]) {
+      const taskConfig = config.taskPlanning.providerConfig[taskType];
       try {
-        const llm = this.createLLMByProvider(config, preferredProvider);
+        const llm = this.createLLMByProvider(config, taskConfig.provider, taskConfig.model);
         if (await llm.isAvailable()) {
           return llm;
         }
       } catch (error) {
-        // If the preferred provider is not available, continue to try others
-        console.warn(`Preferred provider ${preferredProvider} is not available: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.warn(`Task-specific provider for ${taskType} is not available: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        // Continue to other fallback options
+      }
+    }
+
+    // If task type doesn't have a specific config or it failed, check for 'default' config
+    if (config.taskPlanning?.providerConfig?.default) {
+      try {
+        const defaultConfig = config.taskPlanning.providerConfig.default;
+        const llm = this.createLLMByProvider(config, defaultConfig.provider, defaultConfig.model);
+        if (await llm.isAvailable()) {
+          return llm;
+        }
+      } catch (error) {
+        console.warn(`Default task provider is not available: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        // Continue to other fallback options
+      }
+    }
+
+    // If a preferred provider is specified (either from options or from taskPlanning.preferredProvider), try to use it
+    const effectivePreferredProvider = preferredProvider || config.taskPlanning?.preferredProvider;
+    if (effectivePreferredProvider) {
+      try {
+        const llm = this.createLLMByProvider(config, effectivePreferredProvider);
+        if (await llm.isAvailable()) {
+          return llm;
+        }
+      } catch (error) {
+        console.warn(`Preferred provider ${effectivePreferredProvider} is not available: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        // Continue to other fallback options
       }
     }
 
@@ -190,36 +229,6 @@ export class LLMFactory {
       }
     }
 
-    // If we still don't have an LLM, try the old structure as a fallback
-    try {
-      // Try local first
-      if (config.llm?.local?.enabled) {
-        const localProvider = config.llm.local.provider;
-        if (localProvider) {
-          const llm = this.createLLMByProvider(config, localProvider);
-          if (await llm.isAvailable()) {
-            return llm;
-          }
-        }
-      }
-
-      // Then try remote
-      if (config.llm?.remote?.enabled) {
-        const remoteProvider = config.llm.remote.provider;
-        if (remoteProvider) {
-          const llm = this.createLLMByProvider(config, remoteProvider);
-          if (await llm.isAvailable()) {
-            return llm;
-          }
-        }
-      }
-
-      throw new Error('No LLM is available');
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to get LLM: ${error.message}`);
-      }
-      throw new Error('Failed to get LLM: Unknown error');
-    }
+    throw new Error('No available LLM providers found');
   }
 }

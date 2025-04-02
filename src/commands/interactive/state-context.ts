@@ -1,3 +1,4 @@
+import { setTimeout } from 'timers/promises';
 import { State } from './state.js';
 import { StateType } from './state-types.js';
 import { ContextData } from './context-data.js';
@@ -38,9 +39,12 @@ export class StateContext {
     const nextStateType = await this.currentState.process(this);
 
     // Transition to next state if needed
-    if (nextStateType !== stateType) {
-      await this.transition(nextStateType);
+    if (nextStateType === stateType) {
+      // If the state is the same, wait for a while before processing again, most likely it is error and retry
+      await setTimeout(1000);
     }
+
+    await this.transition(nextStateType);
   }
 
   public getContextData(): ContextData {

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 import { BaseTool, ensurePathInWorkingDir } from './base.js';
+import { FileSourceLlmPreparation } from './file-source-llm-preparation.js';
 
 export class EditFileTool extends BaseTool {
   name = 'edit_file';
@@ -130,6 +131,11 @@ export class EditFileTool extends BaseTool {
         });
       }
 
+      const fileSourceLlmPreparation = new FileSourceLlmPreparation([{
+        path: filePath,
+        syntax: path.extname(filePath),
+      }], this.workingDir);
+
       // Verify content at the specified lines
       if (lines[startLineIndex].trim() !== starting_position.current_content.trim()) {
         return JSON.stringify({
@@ -138,6 +144,7 @@ export class EditFileTool extends BaseTool {
           lineNumber: starting_position.line_number,
           expectedContent: starting_position.current_content,
           actualContent: lines[startLineIndex],
+          currentFileContent: fileSourceLlmPreparation.renderForLlm(true),
           suggestion: 'Make sure the expected content matches exactly, including whitespace and indentation'
         });
       }
@@ -149,6 +156,7 @@ export class EditFileTool extends BaseTool {
           lineNumber: end_position.line_number,
           expectedContent: end_position.current_content,
           actualContent: lines[endLineIndex],
+          currentFileContent: fileSourceLlmPreparation.renderForLlm(true),
           suggestion: 'Make sure the expected content matches exactly, including whitespace and indentation'
         });
       }
@@ -195,8 +203,7 @@ export class EditFileTool extends BaseTool {
         message: `File ${file} updated successfully`,
         linesReplaced: endLineIndex - startLineIndex + 1,
         newLinesCount: newLines.length,
-        startLine: startLineIndex + 1,
-        endLine: endLineIndex + 1
+        newContent: fileSourceLlmPreparation.renderForLlm(true)
       });
     } catch (error) {
       if (error instanceof Error) {
