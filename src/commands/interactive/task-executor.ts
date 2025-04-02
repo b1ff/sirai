@@ -142,7 +142,28 @@ Current working directory: '${projectDir}'
       const taskPrompt = this.createTaskPrompt();
 
       const userInput = `${subtask.taskSpecification}\n${fileContents}`;
-      const success = await this.executeTask(taskPrompt, userInput, llm);
+      
+      // Add retry logic for individual subtasks
+      let success = false;
+      let retryCount = 0;
+      const maxRetries = 5;
+      
+      while (!success && retryCount < maxRetries) {
+        if (retryCount > 0) {
+          console.log(chalk.yellow(`Retrying task ${i + 1}/${orderedSubtasks.length} (Attempt ${retryCount + 1}/${maxRetries})...`));
+        }
+        
+        success = await this.executeTask(taskPrompt, userInput, llm);
+        
+        if (!success) {
+          retryCount++;
+          if (retryCount >= maxRetries) {
+            console.error(chalk.red(`Failed to execute task after ${maxRetries} attempts, moving to next task`));
+          }
+        }
+      }
+      
+      // If all retries failed for this subtask, return false to indicate failure
       if (!success) {
         return false;
       }

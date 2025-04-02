@@ -59,20 +59,7 @@ export class ExecutingTasksState implements State {
         basePrompt
       );
 
-      // If execution failed, try to fix the issues
-      if (!success) {
-        contextData.incrementRetryCount();
-
-        if (contextData.getRetryCount() < 5) {
-          console.log(chalk.yellow(`Execution failed, retrying (${contextData.getRetryCount()}/5)...`));
-          return StateType.EXECUTING_TASKS;
-        } else {
-          console.error(chalk.red('Maximum retry count reached, giving up'));
-          contextData.resetRetryCount();
-        }
-      } else {
-        contextData.resetRetryCount();
-      }
+      // No need to retry here as retries are now handled at the subtask level
 
       return StateType.GENERATING_SUMMARY;
     } catch (error) {
@@ -82,8 +69,7 @@ export class ExecutingTasksState implements State {
   }
 
   public enter(context: StateContext): void {
-    // Reset retry count when entering the state
-    context.getContextData().resetRetryCount();
+    // Nothing to do
   }
 
   public exit(context: StateContext): void {
