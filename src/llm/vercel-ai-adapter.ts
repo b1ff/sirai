@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { streamText, generateText, generateObject } from 'ai';
 import { BaseVercelAIProvider } from './vercel-ai/base.js';
 import { VercelAIFactory } from './vercel-ai/factory.js';
+import { AITracer } from '../utils/tracer.js';
 
 /**
  * Adapter for Vercel AI SDK
@@ -43,6 +44,9 @@ export class VercelAIAdapter extends BaseLLM {
    */
   async generate(systemInstructions: string | undefined, userInput: string, options?: LLMOptions): Promise<string> {
     try {
+      // Trace the prompt
+      AITracer.getInstance().tracePrompt(systemInstructions, userInput);
+      
       // Use Vercel AI SDK generateText function
       const result = await generateText({
         model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
@@ -51,6 +55,9 @@ export class VercelAIAdapter extends BaseLLM {
         toolChoice: 'auto',
         ...this.aiProvider.adaptOptions(options),
       });
+
+      // Trace the response
+      AITracer.getInstance().traceResponse(result.text);
 
       // Extract the text from the result
       return result.text;
@@ -71,6 +78,9 @@ export class VercelAIAdapter extends BaseLLM {
     let fullResponse = '';
 
     try {
+      // Trace the prompt
+      AITracer.getInstance().tracePrompt(systemInstructions, userInput);
+      
       const stream = streamText({
         model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
         system: systemInstructions,
@@ -84,6 +94,9 @@ export class VercelAIAdapter extends BaseLLM {
           onChunk(chunk);
         }
       }
+      
+      // Trace the complete response
+      AITracer.getInstance().traceResponse(fullResponse);
 
       return fullResponse;
     } catch (error) {
@@ -107,6 +120,9 @@ export class VercelAIAdapter extends BaseLLM {
     options?: LLMOptions
   ): Promise<T> {
     try {
+      // Trace the prompt
+      AITracer.getInstance().tracePrompt(undefined, prompt);
+      
       // Use Vercel AI SDK generateObject function
       const result = await generateObject({
         model: this.aiProvider.getModelProvider()(this.aiProvider.getModel(), { structuredOutputs: true }),
@@ -114,6 +130,9 @@ export class VercelAIAdapter extends BaseLLM {
         schema: schema,
         ...this.aiProvider.adaptOptions(options),
       });
+
+      // Trace the response
+      AITracer.getInstance().traceResponse(JSON.stringify(result, null, 2));
 
       // Double casting to satisfy TypeScript
       return result as unknown as T;

@@ -112,6 +112,10 @@ export abstract class BaseVercelAIProvider {
     };
 
     console.log(chalk.yellow(`\n🔧 Executing tool: ${toolItem.name}...`));
+    
+    // Trace the tool call
+    const { AITracer } = await import('../../utils/tracer.js');
+    AITracer.getInstance().traceToolCall(toolItem.name, args);
 
     try {
       const result = await toolItem.execute(args);
@@ -119,6 +123,9 @@ export abstract class BaseVercelAIProvider {
       // Log the successful tool call
       console.log(formatToolCall(toolCall, result));
       console.log(formatToolSuccess(toolItem.name, JSON.stringify(result).substring(0, 100)));
+      
+      // Trace the tool result
+      AITracer.getInstance().traceToolResult(toolItem.name, result);
 
       return result;
     } catch (error) {

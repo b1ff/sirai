@@ -28,10 +28,12 @@ export class OpenAIProvider extends BaseVercelAIProvider {
 
     // Create OpenAI provider
     const openai = createOpenAI({
-      apiKey: this.apiKey
+      apiKey: this.apiKey,
     });
 
-    this.modelProvider = openai;
+    this.modelProvider = (model: string) => openai(model, {
+      parallelToolCalls: false
+    });
   }
 
   /**

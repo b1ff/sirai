@@ -141,9 +141,10 @@ export class WriteFileTool extends BaseTool {
         }
       }
 
-      // If the file exists and we're not overwriting, throw an error
+      // If the file exists and we're not overwriting, return the file content
       if (fileExists && !overwrite) {
-        throw new Error(`File ${filePath} already exists and overwrite is set to false`);
+        const existingContent = await fs.readFile(resolvedPath, { encoding: encoding as BufferEncoding });
+        return `Write operation not successful. File ${filePath} already exists and overwrite is set to false. Current file content:\n\n${existingContent}`;
       }
 
       // If we need approval, prompt for it
