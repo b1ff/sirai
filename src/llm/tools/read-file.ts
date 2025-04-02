@@ -2,6 +2,8 @@ import { z } from 'zod';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 import { BaseTool, ensurePathInWorkingDir } from './base.js';
+import { FileSourceLlmPreparation } from './file-source-llm-preparation.js';
+import { FileToRead } from '../../task-planning/schemas.js';
 
 /**
  * Tool for reading files from the file system
@@ -11,12 +13,12 @@ export class ReadFileTool extends BaseTool {
   /**
    * The name of the tool
    */
-  name = 'read_file';
+  name = 'read_files';
 
   /**
    * The description of the tool
    */
-  description = 'Read a file from the file system. The file must be in the working directory.';
+  description = 'Read files from the file system. The files must be in the working directory. Prefer reading multiple files at one call if intention is to read multiple files.';
 
   /**
    * The parameters of the tool
@@ -25,7 +27,7 @@ export class ReadFileTool extends BaseTool {
     /**
      * The path to the file to read
      */
-    path: z.union([z.string(), z.array(z.string())]).describe('The path to the file(s) to read'),
+    path: z.array(z.string()).describe('An array of file paths to read.'),
 
     /**
      * The encoding to use when reading the file
@@ -48,6 +50,12 @@ export class ReadFileTool extends BaseTool {
   };
 
   /**
+   * FileSourceLlmPreparation class (for testing)
+   * @private
+   */
+  private fileSourceLlmPreparationClass: typeof FileSourceLlmPreparation = FileSourceLlmPreparation;
+
+  /**
    * Constructor
    * @param workingDir - The working directory
    * @param fs - The file system module (for testing)
@@ -64,31 +72,78 @@ export class ReadFileTool extends BaseTool {
   /**
    * Execute the tool with the given arguments
    * @param args - The arguments to pass to the tool
-   * @returns The content of the file
+   * @returns The content of the file(s)
    */
   async execute(args: Record<string, unknown>): Promise<string> {
     try {
       // Parse and validate arguments
-      const { path: filePath, encoding } = this.parameters.parse(args);
-
-      // Ensure the file is in the working directory
-      const pathToUse = Array.isArray(filePath) ? filePath[0] : filePath;
-      const resolvedPath = ensurePathInWorkingDir(pathToUse, this.workingDir);
-
-      // Check if the file exists
-      try {
-        await this.fs.access(resolvedPath);
-      } catch (error) {
-        throw new Error(`File ${filePath} does not exist`);
-      }
-
-      // Read the file
-      const content = await this.fs.readFile(resolvedPath, { encoding: encoding as BufferEncoding });
-
-      return content;
+      const { path: filePaths, encoding } = this.parameters.parse(args);
+      
+      // Create FileToRead objects for each path
+      const filesToRead = await Promise.all(filePaths.map(async (path) => {
+        const resolvedPath = ensurePathInWorkingDir(path, this.workingDir);
+        
+        // Check if the file exists
+        try {
+          await this.fs.access(resolvedPath);
+        } catch (error) {
+          throw new Error(`File ${path} does not exist`);
+        }
+        
+        // Determine file syntax based on extension
+        const extension = path.split('.').pop() || '';
+        const syntax = this.getFileSyntax(extension);
+        
+        return {
+          path: resolvedPath,
+          syntax
+        };
+      }));
+      
+      // Use FileSourceLlmPreparation to format the files
+      const filePreparation = new this.fileSourceLlmPreparationClass(filesToRead, this.workingDir);
+      return await filePreparation.renderForLlm(true); // true to include line numbers
     } catch (error) {
       // Use the common error handling method from the base class
       return this.handleToolError(error);
     }
+  }
+
+  /**
+   * Get the syntax highlighting language based on file extension
+   * @param extension - The file extension
+   * @returns The syntax highlighting language
+   * @private
+   */
+  private getFileSyntax(extension: string): string {
+    const extensionMap: Record<string, string> = {
+      'js': 'javascript',
+      'ts': 'typescript',
+      'jsx': 'javascript',
+      'tsx': 'typescript',
+      'py': 'python',
+      'java': 'java',
+      'c': 'c',
+      'cpp': 'cpp',
+      'cs': 'csharp',
+      'go': 'go',
+      'rb': 'ruby',
+      'php': 'php',
+      'html': 'html',
+      'css': 'css',
+      'json': 'json',
+      'md': 'markdown',
+      'txt': 'text',
+      'sh': 'bash',
+      'yml': 'yaml',
+      'yaml': 'yaml',
+      'xml': 'xml',
+      'sql': 'sql',
+      'swift': 'swift',
+      'kt': 'kotlin',
+      'rs': 'rust'
+    };
+
+    return extensionMap[extension.toLowerCase()] || 'text';
   }
 }

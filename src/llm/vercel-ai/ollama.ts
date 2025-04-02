@@ -28,8 +28,8 @@ export class OllamaProvider extends BaseVercelAIProvider {
     });
 
     this.modelProvider = (model: string) => ollama(model,{
-      simulateStreaming: false,
-      numCtx: 16000, // TODO: config
+      simulateStreaming: true,
+      numCtx: 6000, // TODO: config
     });
   }
 

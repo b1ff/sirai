@@ -45,7 +45,8 @@ describe('LLM Integration Test with Real LLM', () => {
     const userInput = `Add endpoint to read dns zone in provided file.`;
 
     // Add context for the LLM
-    const promptWithContext = `${taskPrompt}\n\n<user_input>${userInput}</user_input>\n${fileSource.renderForLlm(true)}`;
+    let fileContent = await fileSource.renderForLlm(true);
+    const promptWithContext = `${taskPrompt}\n\n<user_input>${userInput}</user_input>\n${fileContent}`;
 
     // Execute the task
     const response = await realLlm.generate(undefined, promptWithContext, {
@@ -53,6 +54,7 @@ describe('LLM Integration Test with Real LLM', () => {
     });
 
     expect(response).to.be.a('string');
+    expect(response).not.to.contain('TOOL_CALLS');
     expect(response.length).to.be.greaterThan(0);
 
     // Verify that at least one of the tools was called

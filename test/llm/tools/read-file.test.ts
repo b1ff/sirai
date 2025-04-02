@@ -30,21 +30,43 @@ describe('ReadFileTool', () => {
   });
 
   it('should read a file in the working directory', async () => {
-    const result = await readFileTool.execute({
+    // Create a new instance for this test with fresh stubs
+    const localFsAccessStub = sinon.stub().resolves();
+    const localFsReadFileStub = sinon.stub().resolves('file content');
+    const localMockFs = {
+      access: localFsAccessStub,
+      readFile: localFsReadFileStub
+    };
+    
+    // Create a custom FileSourceLlmPreparation class that returns predictable content
+    class MockFileSourceLlmPreparation {
+      constructor(private files: any[], private workingDir: string) {}
+      
+      async renderForLlm(withLineNumbers: boolean): Promise<string> {
+        return 'file content';
+      }
+    }
+    
+    // Create a new tool instance with our mocks
+    const localReadFileTool = new ReadFileTool(workingDir, localMockFs);
+    // @ts-ignore - Accessing private property for testing
+    localReadFileTool['fileSourceLlmPreparationClass'] = MockFileSourceLlmPreparation;
+    
+    const result = await localReadFileTool.execute({
       path: ['test.txt'],
       encoding: 'utf-8'
     });
 
-    expect(result).to.contain('file content');
-    expect(fsAccessStub.calledOnce).to.be.true;
-    expect(fsReadFileStub.calledOnce).to.be.true;
-    expect(fsReadFileStub.firstCall.args[0]).to.equal(path.resolve(workingDir, 'test.txt'));
-    expect(fsReadFileStub.firstCall.args[1]).to.deep.equal({ encoding: 'utf-8' });
+    expect(result).to.equal('file content');
+    expect(localFsAccessStub.calledOnce).to.be.true;
+    expect(localFsReadFileStub.calledOnce).to.be.true;
+    expect(localFsReadFileStub.firstCall.args[0]).to.equal(path.resolve(workingDir, 'test.txt'));
+    expect(localFsReadFileStub.firstCall.args[1]).to.deep.equal({ encoding: 'utf-8' });
   });
 
   it('should return an error message if the file is outside the working directory', async () => {
     const result = await readFileTool.execute({
-      path: '../outside.txt',
+      path: ['../outside.txt'],
       encoding: 'utf-8'
     });
 
@@ -55,7 +77,7 @@ describe('ReadFileTool', () => {
     fsAccessStub.rejects(new Error('File not found'));
 
     const result = await readFileTool.execute({
-      path: 'nonexistent.txt',
+      path: ['nonexistent.txt'],
       encoding: 'utf-8'
     });
 
@@ -63,19 +85,65 @@ describe('ReadFileTool', () => {
   });
 
   it('should use utf-8 encoding by default', async () => {
-    await readFileTool.execute({
-      path: 'test.txt'
+    // Create a new instance for this test with fresh stubs
+    const localFsAccessStub = sinon.stub().resolves();
+    const localFsReadFileStub = sinon.stub().resolves('file content');
+    const localMockFs = {
+      access: localFsAccessStub,
+      readFile: localFsReadFileStub
+    };
+    
+    // Create a custom FileSourceLlmPreparation class that returns predictable content
+    class MockFileSourceLlmPreparation {
+      constructor(private files: any[], private workingDir: string) {}
+      
+      async renderForLlm(withLineNumbers: boolean): Promise<string> {
+        return 'file content';
+      }
+    }
+    
+    // Create a new tool instance with our mocks
+    const localReadFileTool = new ReadFileTool(workingDir, localMockFs);
+    // @ts-ignore - Accessing private property for testing
+    localReadFileTool['fileSourceLlmPreparationClass'] = MockFileSourceLlmPreparation;
+    
+    await localReadFileTool.execute({
+      path: ['test.txt']
     });
 
-    expect(fsReadFileStub.firstCall.args[1]).to.deep.equal({ encoding: 'utf-8' });
+    expect(localFsReadFileStub.calledOnce).to.be.true;
+    expect(localFsReadFileStub.firstCall.args[1]).to.deep.equal({ encoding: 'utf-8' });
   });
 
   it('should support different encodings', async () => {
-    await readFileTool.execute({
-      path: 'test.txt',
+    // Create a new instance for this test with fresh stubs
+    const localFsAccessStub = sinon.stub().resolves();
+    const localFsReadFileStub = sinon.stub().resolves('file content');
+    const localMockFs = {
+      access: localFsAccessStub,
+      readFile: localFsReadFileStub
+    };
+    
+    // Create a custom FileSourceLlmPreparation class that returns predictable content
+    class MockFileSourceLlmPreparation {
+      constructor(private files: any[], private workingDir: string) {}
+      
+      async renderForLlm(withLineNumbers: boolean): Promise<string> {
+        return 'file content';
+      }
+    }
+    
+    // Create a new tool instance with our mocks
+    const localReadFileTool = new ReadFileTool(workingDir, localMockFs);
+    // @ts-ignore - Accessing private property for testing
+    localReadFileTool['fileSourceLlmPreparationClass'] = MockFileSourceLlmPreparation;
+    
+    await localReadFileTool.execute({
+      path: ['test.txt'],
       encoding: 'binary'
     });
 
-    expect(fsReadFileStub.firstCall.args[1]).to.deep.equal({ encoding: 'binary' });
+    expect(localFsReadFileStub.calledOnce).to.be.true;
+    expect(localFsReadFileStub.firstCall.args[1]).to.deep.equal({ encoding: 'binary' });
   });
 });

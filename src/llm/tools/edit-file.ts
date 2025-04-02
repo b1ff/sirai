@@ -174,21 +174,7 @@ export class EditFileTool extends BaseTool {
         const linesToReplace = lines.slice(startLineIndex, endLineIndex + 1);
         const newLines = change.new_content.split('\n');
 
-        diff += `Change #${i + 1}:\n`;
-        diff += `Replacing content from line ${startLineIndex + 1} to ${endLineIndex + 1} (${linesToReplace.length} lines)\n`;
-        diff += `With ${newLines.length} new lines\n\n`;
-
-        diff += "Content being replaced:\n";
-        linesToReplace.forEach((line, j) => {
-          diff += `${startLineIndex + j + 1}: ${line}\n`;
-        });
-
-        diff += "\nNew content:\n";
-        newLines.forEach((line) => {
-          diff += `${line}\n`;
-        });
-        
-        diff += "\n---\n\n";
+        diff = this.buildDiff(diff, i, startLineIndex, endLineIndex, linesToReplace, newLines);
       }
 
       // Get approval if configured
@@ -236,5 +222,24 @@ export class EditFileTool extends BaseTool {
         message: 'Failed to edit file: Unknown error'
       });
     }
+  }
+
+  private buildDiff(diff: string, i: number, startLineIndex: number, endLineIndex: number, linesToReplace: string[], newLines: string[]) {
+    diff += `Change #${i + 1}:\n`;
+    diff += `Replacing content from line ${startLineIndex + 1} to ${endLineIndex + 1} (${linesToReplace.length} lines)\n`;
+    diff += `With ${newLines.length} new lines\n\n`;
+
+    diff += "Content being replaced:\n";
+    linesToReplace.forEach((line, j) => {
+      diff += `${startLineIndex + j + 1}: ${line}\n`;
+    });
+
+    diff += "\nNew content:\n";
+    newLines.forEach((line) => {
+      diff += `${line}\n`;
+    });
+
+    diff += "\n---\n\n";
+    return diff;
   }
 }
