@@ -1,11 +1,12 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { glob } from 'glob';
-import { ContextProfile } from './schemas.js';
+import { ContextProfile, DirectoryStructure } from './schemas.js';
 
 /**
  * Utility class for file system operations related to task planning
  */
+
 export class FileSystemUtils {
   /**
    * Gets the language of a file based on its extension
@@ -183,6 +184,60 @@ export class FileSystemUtils {
   }
 
   /**
+   * Creates a directory structure representation
+   * @param dir - The directory to create a structure for
+   * @param maxDepth - Maximum depth to traverse
+   * @returns A directory structure object
+   */
+  static async createDirectoryStructure(
+    dir: string,
+    maxDepth: number = 2
+  ): Promise<DirectoryStructure> {
+    try {
+      const name = path.basename(dir);
+      const structure: DirectoryStructure = {
+        path: dir,
+        name,
+        type: 'directory',
+        children: []
+      };
+
+      if (maxDepth <= 0) {
+        return structure;
+      }
+
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const fullPath = path.join(dir, entry.name);
+          
+          // Skip .git and node_modules directories
+          if (entry.name === '.git' || entry.name === 'node_modules') {
+            continue;
+          }
+          
+          const childStructure = await this.createDirectoryStructure(
+            fullPath,
+            maxDepth - 1
+          );
+          
+          structure.children?.push(childStructure);
+        }
+      }
+      
+      return structure;
+    } catch (error) {
+      console.error(`Error creating directory structure for ${dir}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return {
+        path: dir,
+        name: path.basename(dir),
+        type: 'directory'
+      };
+    }
+  }
+
+  /**
    * Creates a context profile for a project
    * @param projectRoot - The root directory of the project
    * @param currentDirectory - The current working directory
@@ -206,12 +261,16 @@ export class FileSystemUtils {
       // Detect technology stack
       const technologyStack = await this.detectTechnologyStack(projectRoot, files);
       
+      // Create directory structure (limited to depth 2 for performance)
+      const directoryStructure = await this.createDirectoryStructure(projectRoot, 2);
+      
       return {
         projectRoot,
         currentDirectory,
         files,
         dependencies,
-        technologyStack
+        technologyStack,
+        directoryStructure
       };
     } catch (error) {
       if (error instanceof Error) {

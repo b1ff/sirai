@@ -1,9 +1,9 @@
 import { BaseLLM } from '../llm/base.js';
 import { AppConfig, LLMFactory } from '../llm/factory.js';
 import { FileSystemUtils } from './file-system-utils.js';
-import { ComplexityLevel, ContextProfile, LLMType, Subtask, TaskPlan, TaskType } from './schemas.js';
+import { ComplexityLevel, ContextProfile, DirectoryStructure, LLMType, Subtask, TaskPlan, TaskType } from './schemas.js';
 import { v4 as uuidv4 } from 'uuid';
-import { BaseTool, StorePlanTool, FindFilesTool, ListFilesTool, ReadFileTool } from '../llm/tools/index.js';
+import { BaseTool, StorePlanTool, FindFilesTool, ListFilesTool, ListDirectoriesTool, ReadFileTool } from '../llm/tools/index.js';
 
 /**
  * Configuration for the LLM planner
@@ -163,6 +163,7 @@ export class LLMPlanner {
     // 2. Create tools for the LLM to use
     const readFileTool = new ReadFileTool(contextProfile.projectRoot);
     const listFilesTool = new ListFilesTool(contextProfile.projectRoot);
+    const listDirsTool = new ListDirectoriesTool(contextProfile.projectRoot);
     const extractPlanTool = new StorePlanTool();
 
     // Wrap tools with debug logging if debug is enabled
@@ -170,9 +171,10 @@ export class LLMPlanner {
       ? [
           this.wrapToolWithLogging(readFileTool),
           this.wrapToolWithLogging(listFilesTool),
+          this.wrapToolWithLogging(listDirsTool),
           this.wrapToolWithLogging(extractPlanTool)
         ]
-      : [readFileTool, listFilesTool, extractPlanTool];
+      : [readFileTool, listFilesTool, listDirsTool, extractPlanTool];
 
     // 3. Create prompt for LLM
     const prompt = `
@@ -381,6 +383,34 @@ After the plan is saved successfully, provide a concise summary of your understa
 
     // Otherwise, the overall complexity is low
     return ComplexityLevel.LOW;
+  }
+
+  /**
+   * Formats a directory structure for display in the prompt
+   * @param structure - The directory structure to format
+   * @param indent - The current indentation level
+   * @returns A formatted string representation of the directory structure
+   */
+  private formatDirectoryStructure(
+    structure?: DirectoryStructure,
+    indent: number = 0
+  ): string {
+    if (!structure) {
+      return 'No directory structure available';
+    }
+
+    let result = '';
+    const indentStr = '  '.repeat(indent);
+    
+    result += `${indentStr}${structure.name}/\n`;
+    
+    if (structure.children && structure.children.length > 0) {
+      for (const child of structure.children) {
+        result += this.formatDirectoryStructure(child, indent + 1);
+      }
+    }
+    
+    return result;
   }
 
   /**

@@ -87,6 +87,16 @@ export interface TaskPlan {
 }
 
 /**
+ * Interface for directory structure representation
+ */
+export interface DirectoryStructure {
+  path: string;
+  name: string;
+  type: 'directory';
+  children?: DirectoryStructure[];
+}
+
+/**
  * Interface for context profile used in task planning
  */
 export interface ContextProfile {
@@ -102,4 +112,5 @@ export interface ContextProfile {
     version: string;
   }[];
   technologyStack: string[];
+  directoryStructure?: DirectoryStructure;
 }

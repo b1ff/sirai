@@ -31,11 +31,11 @@ describe('ReadFileTool', () => {
 
   it('should read a file in the working directory', async () => {
     const result = await readFileTool.execute({
-      path: 'test.txt',
+      path: ['test.txt'],
       encoding: 'utf-8'
     });
 
-    expect(result).to.equal('file content');
+    expect(result).to.contain('file content');
     expect(fsAccessStub.calledOnce).to.be.true;
     expect(fsReadFileStub.calledOnce).to.be.true;
     expect(fsReadFileStub.firstCall.args[0]).to.equal(path.resolve(workingDir, 'test.txt'));
