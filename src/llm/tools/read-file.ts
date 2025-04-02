@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
-import { BaseTool, ensurePathInWorkingDir } from './base.js';
+import { BaseTool } from './base.js';
 import { FileSourceLlmPreparation } from './file-source-llm-preparation.js';
-import { FileToRead } from '../../task-planning/schemas.js';
+import { FileSystemHelper } from './file-system-helper.js';
 
 /**
  * Tool for reading files from the file system
@@ -42,6 +42,11 @@ export class ReadFileTool extends BaseTool {
   private workingDir: string;
 
   /**
+   * The file system helper
+   */
+  private fileSystemHelper: FileSystemHelper;
+
+  /**
    * The file system module
    */
   private fs: {
@@ -67,6 +72,7 @@ export class ReadFileTool extends BaseTool {
     super();
     this.workingDir = path.resolve(workingDir);
     this.fs = fs || fsPromises;
+    this.fileSystemHelper = new FileSystemHelper(this.workingDir);
   }
 
   /**
@@ -80,24 +86,32 @@ export class ReadFileTool extends BaseTool {
       const { path: filePaths, encoding } = this.parameters.parse(args);
       
       // Create FileToRead objects for each path
-      const filesToRead = await Promise.all(filePaths.map(async (path) => {
-        const resolvedPath = ensurePathInWorkingDir(path, this.workingDir);
-        
-        // Check if the file exists
+      const filesToRead = await Promise.all(filePaths.map(async (filePath) => {
         try {
-          await this.fs.access(resolvedPath);
+          // Use FileSystemHelper to resolve and validate the path
+          const resolvedPath = this.fileSystemHelper.ensurePathInWorkingDir(filePath);
+          
+          // Check if the file exists
+          try {
+            await this.fs.access(resolvedPath);
+          } catch (error) {
+            throw new Error(`File ${filePath} does not exist`);
+          }
+          
+          // Determine file syntax based on extension
+          const extension = filePath.split('.').pop() || '';
+          const syntax = this.getFileSyntax(extension);
+          
+          return {
+            path: resolvedPath,
+            syntax
+          };
         } catch (error) {
-          throw new Error(`File ${path} does not exist`);
+          if (error instanceof Error) {
+            throw error;
+          }
+          throw new Error(`Invalid file path: ${filePath}`);
         }
-        
-        // Determine file syntax based on extension
-        const extension = path.split('.').pop() || '';
-        const syntax = this.getFileSyntax(extension);
-        
-        return {
-          path: resolvedPath,
-          syntax
-        };
       }));
       
       // Use FileSourceLlmPreparation to format the files

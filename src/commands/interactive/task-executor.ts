@@ -4,7 +4,7 @@ import inquirer from 'inquirer';
 import { BaseLLM } from '../../llm/base.js';
 import { CodeRenderer } from '../../utils/code-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
-import { WriteFileTool, EditFileTool } from '../../llm/tools/index.js';
+import { WriteFileTool, EditFileTool, PatchFileTool } from '../../llm/tools/index.js';
 import { FileToRead } from '../../task-planning/schemas.js';
 import { FileSourceLlmPreparation } from '../../llm/tools/file-source-llm-preparation.js';
 
@@ -43,7 +43,7 @@ Current working directory: '${projectDir}'
 3. IMPLEMENT code consistent with the existing project patterns and styles using provided tools
 
 ## IMPLEMENTATION GUIDELINES
-- USE the provided file system tools to write, or modify files
+- USE the provided file system tools to write, or modify files. Prefer batch modifications within one tool call when possible
 - ALWAYS choose to call tools to make modifications - do not output outside tools calls, it won't be used
 - MAINTAIN the exact interfaces specified to ensure correct integration
 - RESPECT any dependencies mentioned in the task specification
@@ -69,7 +69,9 @@ Current working directory: '${projectDir}'
         // Enable function calling
         tools: [
           new EditFileTool(projectDir),
+          // new PatchFileTool(projectDir),
           new WriteFileTool(projectDir, async (filePath, content) => {
+            spinner.stop();
             const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
               {
                 type: 'list',
@@ -80,6 +82,7 @@ Current working directory: '${projectDir}'
               }
             ]);
 
+            spinner.start("Thinking...");
             return confirmation === 'Yes';
           }),
         ],
@@ -96,15 +99,6 @@ Current working directory: '${projectDir}'
     }
   }
 
-
-  /**
-   * Executes a list of subtasks
-   * @param subtasks - The subtasks to execute
-   * @param executionOrder - The execution order of subtasks
-   * @param llm - The LLM to use
-   * @param compiledHistory - The base prompt
-   * @returns Whether all tasks were executed successfully
-   */
   public async executeSubtasks(
     subtasks: Array<{ id: string; taskSpecification: string; filesToRead?: FileToRead[] }>,
     executionOrder: string[],

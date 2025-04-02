@@ -73,20 +73,6 @@ export abstract class BaseTool implements Tool {
 
     return JSON.stringify(errorObj, null, 2);
   }
-
-  toVercelAITool() {
-    return tool({
-      description: this.description,
-      parameters: this.parameters as any,
-      execute: async (args) => {
-        try {
-          return await this.execute(args);
-        } catch (error) {
-          return this.handleToolError(error);
-        }
-      }
-    });
-  }
 }
 
 /**

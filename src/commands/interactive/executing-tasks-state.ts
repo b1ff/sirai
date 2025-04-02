@@ -59,12 +59,10 @@ export class ExecutingTasksState implements State {
         basePrompt
       );
 
-      // No need to retry here as retries are now handled at the subtask level
-
-      return StateType.GENERATING_SUMMARY;
+      return StateType.WAITING_FOR_INPUT;
     } catch (error) {
       console.error(chalk.red(`Error executing tasks: ${error instanceof Error ? error.message : 'Unknown error'}`));
-      return StateType.GENERATING_SUMMARY;
+      return StateType.WAITING_FOR_INPUT;
     }
   }
 

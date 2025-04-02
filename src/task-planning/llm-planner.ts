@@ -1,9 +1,18 @@
 import { BaseLLM } from '../llm/base.js';
 import { AppConfig, LLMFactory } from '../llm/factory.js';
 import { FileSystemUtils } from './file-system-utils.js';
-import { ComplexityLevel, ContextProfile, DirectoryStructure, LLMType, Subtask, TaskPlan, TaskType } from './schemas.js';
+import { ComplexityLevel, ContextProfile, LLMType, Subtask, TaskPlan } from './schemas.js';
 import { v4 as uuidv4 } from 'uuid';
-import { BaseTool, StorePlanTool, FindFilesTool, ListFilesTool, ListDirectoriesTool, ReadFileTool, AskUserTool } from '../llm/tools/index.js';
+import {
+  BaseTool,
+  StorePlanTool,
+  ListFilesTool,
+  ListDirectoriesTool,
+  ReadFileTool,
+  AskUserTool,
+  RunProcessTool
+} from '../llm/tools/index.js';
+import inquirer from 'inquirer';
 
 /**
  * Configuration for the LLM planner
@@ -97,38 +106,6 @@ export class LLMPlanner {
   }
 
   /**
-   * Determines if a provider is remote
-   * @param provider - The provider name
-   * @returns True if the provider is remote
-   */
-  private isRemoteProvider(provider: string): boolean {
-    const remoteProviders = ['openai', 'anthropic', 'google'];
-    return remoteProviders.includes(provider.toLowerCase());
-  }
-
-  /**
-   * Wraps a tool with logging functionality
-   * @param tool - The tool to wrap
-   * @returns A new tool that logs when it's called
-   */
-  private wrapToolWithLogging(tool: BaseTool): BaseTool {
-    const originalExecute = tool.execute.bind(tool);
-
-    // Create a proxy object that wraps the original tool
-    const proxy = Object.create(tool);
-
-    // Override the execute method to add logging
-    proxy.execute = async (args: Record<string, unknown>): Promise<string> => {
-      console.log(`[DEBUG] Tool called: ${tool.name} with args:`, args);
-      let result = await originalExecute(args);
-      console.log(`[DEBUG] Tool called: ${result}`);
-      return result;
-    };
-
-    return proxy as BaseTool;
-  }
-
-  /**
    * Creates a context profile for a project
    * @param projectRoot - The root directory of the project
    * @param currentDirectory - The current working directory
@@ -160,23 +137,40 @@ export class LLMPlanner {
       throw new Error('Failed to initialize LLM for task planning');
     }
 
-    // 2. Create tools for the LLM to use
     const readFileTool = new ReadFileTool(contextProfile.projectRoot);
     const listFilesTool = new ListFilesTool(contextProfile.projectRoot);
-    const listDirsTool = new ListDirectoriesTool(contextProfile.projectRoot);
     const extractPlanTool = new StorePlanTool();
     const askUserTool = new AskUserTool();
+    // todo: add config for trusted commands
+    const runProcessTool = new RunProcessTool({
+      trustedCommands: [],
+    }, async command => {
+      const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
+        {
+          type: 'list',
+          name: 'confirmation',
+          message: `Do you allow to run "${command}"?`,
+          choices: ['Yes', 'No'],
+          default: 'Yes'
+        }
+      ]);
+
+      return confirmation === 'Yes';
+    })
 
     // Wrap tools with debug logging if debug is enabled
-    const tools = this.debug 
-      ? [
-          this.wrapToolWithLogging(readFileTool),
-          this.wrapToolWithLogging(listFilesTool),
-          this.wrapToolWithLogging(listDirsTool),
-          this.wrapToolWithLogging(extractPlanTool),
-          this.wrapToolWithLogging(askUserTool)
-        ]
-      : [readFileTool, listFilesTool, listDirsTool, extractPlanTool, askUserTool];
+    const tools = [readFileTool, listFilesTool, extractPlanTool, askUserTool, runProcessTool];
+
+    // Get directory structure
+    let filesStructure = 'Could not retrieve directory structure.'; // Default message
+    try {
+      // Use the existing listDirsTool instance
+      // Note: Assuming ListDirectoriesTool has similar parameters to ListFilesTool
+      // We'll request directories only, up to depth 4
+      filesStructure = await listFilesTool.execute({ directory: '.', depth: 4 });
+    } catch (error) {
+      console.warn(`[LLMPlanner] Failed to get directory structure: ${error instanceof Error ? error.message : String(error)}`);
+    }
 
     // 3. Create prompt for LLM
     const prompt = `
@@ -184,6 +178,12 @@ You are a task planning assistant. Your job is to analyze a user request and cre
 
 PROJECT CONTEXT:
 Current Directory: ${contextProfile.currentDirectory}
+Project Root: ${contextProfile.projectRoot}
+
+PROJECT DIRECTORY STRUCTURE (limited depth):
+"""
+${filesStructure}
+"""
 
 ## CONTEXT GATHERING PHASE
 First, use the provided tools to explore the project and gather essential context. Focus on:
@@ -210,8 +210,9 @@ Title: [Descriptive Task Title]
 
 **Context:**
 - **Files:** [Full paths to files that need to be created or modified]
-- **Modules:** [Names of relevant modules]
 - **Interfaces:** [Description of public interfaces to implement or use]
+- **References to use**: [Methods, classes, fields, functins, etc. to use]
+- **Project Patterns:** [Higlight this project specific patterns to follow]
 
 **Requirements:**
 1. [Detailed requirement 1]
@@ -390,34 +391,6 @@ After the plan is saved successfully, provide a concise summary of your understa
 
     // Otherwise, the overall complexity is low
     return ComplexityLevel.LOW;
-  }
-
-  /**
-   * Formats a directory structure for display in the prompt
-   * @param structure - The directory structure to format
-   * @param indent - The current indentation level
-   * @returns A formatted string representation of the directory structure
-   */
-  private formatDirectoryStructure(
-    structure?: DirectoryStructure,
-    indent: number = 0
-  ): string {
-    if (!structure) {
-      return 'No directory structure available';
-    }
-
-    let result = '';
-    const indentStr = '  '.repeat(indent);
-    
-    result += `${indentStr}${structure.name}/\n`;
-    
-    if (structure.children && structure.children.length > 0) {
-      for (const child of structure.children) {
-        result += this.formatDirectoryStructure(child, indent + 1);
-      }
-    }
-    
-    return result;
   }
 
   /**

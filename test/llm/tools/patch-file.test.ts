@@ -2,11 +2,11 @@ import { expect } from 'chai';
 import * as sinon from 'sinon';
 import * as path from 'path';
 import { Stats } from 'fs';
-import { EditFileTool } from '../../../src/llm/tools/edit-file.js';
+import { PatchFileTool } from '../../../src/llm/tools/patch-file.js'; // Assuming PatchFileTool exists here
 
-describe('EditFileTool', () => {
+describe('PatchFileTool', () => {
   const workingDir = process.cwd();
-  let editFileTool: EditFileTool;
+  let patchFileTool: PatchFileTool;
   let fsStatStub: sinon.SinonStub;
   let fsReadFileStub: sinon.SinonStub;
   let fsWriteFileStub: sinon.SinonStub;
@@ -56,24 +56,25 @@ describe('EditFileTool', () => {
       writeFile: fsWriteFileStub
     };
 
-    // Create EditFileTool with mocked promptForApproval and fs
-    editFileTool = new EditFileTool(workingDir, promptForApprovalStub, mockFs);
+    // Create PatchFileTool with mocked promptForApproval and fs
+    // Assuming PatchFileTool constructor is similar to EditFileTool
+    patchFileTool = new PatchFileTool(workingDir, promptForApprovalStub, mockFs);
   });
 
   afterEach(() => {
     sinon.restore();
   });
 
-  it('should edit a file with valid line numbers and content', async () => {
-    const result = await editFileTool.execute({
+  it('should patch a file with valid line numbers and content', async () => {
+    const result = await patchFileTool.execute({
       file_path: 'test.txt',
-      changes: [{
+      changes: {
         starting_position_line_number: 2,
         starting_position_current_content: 'line 2',
         end_position_line_number: 4,
         end_position_current_content: 'line 4',
         new_content: 'new line 2\nnew line 3\nnew line 4'
-      }]
+      }
     });
 
     const parsedResult = JSON.parse(result);
@@ -86,15 +87,15 @@ describe('EditFileTool', () => {
   });
 
   it('should return an error if the file is outside the working directory', async () => {
-    const result = await editFileTool.execute({
+    const result = await patchFileTool.execute({
       file_path: '../outside.txt',
-      changes: [{
+      changes: {
         starting_position_line_number: 2,
         starting_position_current_content: 'line 2',
         end_position_line_number: 4,
         end_position_current_content: 'line 4',
         new_content: 'new content'
-      }]
+      }
     });
 
     const parsedResult = JSON.parse(result);
@@ -105,15 +106,15 @@ describe('EditFileTool', () => {
   it('should return an error if the file does not exist', async () => {
     fsStatStub.rejects(new Error('File not found'));
 
-    const result = await editFileTool.execute({
+    const result = await patchFileTool.execute({
       file_path: 'nonexistent.txt',
-      changes: [{
+      changes: {
         starting_position_line_number: 2,
         starting_position_current_content: 'line 2',
         end_position_line_number: 4,
         end_position_current_content: 'line 4',
         new_content: 'new content'
-      }]
+      }
     });
 
     const parsedResult = JSON.parse(result);
@@ -122,15 +123,15 @@ describe('EditFileTool', () => {
   });
 
   it('should return an error if the starting line number is out of bounds', async () => {
-    const result = await editFileTool.execute({
+    const result = await patchFileTool.execute({
       file_path: 'test.txt',
-      changes: [{
+      changes: {
         starting_position_line_number: 10,
         starting_position_current_content: 'line 10',
         end_position_line_number: 12,
         end_position_current_content: 'line 12',
         new_content: 'new content'
-      }]
+      }
     });
 
     const parsedResult = JSON.parse(result);
@@ -139,24 +140,24 @@ describe('EditFileTool', () => {
   });
 
   it('should return an error if the ending line number is out of bounds', async () => {
-    const result = await editFileTool.execute({
+    const result = await patchFileTool.execute({
       file_path: 'test.txt',
-      changes: [{
+      changes: {
         starting_position_line_number: 2,
         starting_position_current_content: 'line 2',
         end_position_line_number: 10,
         end_position_current_content: 'line 10',
         new_content: 'new content'
-      }]
+      }
     });
 
     const parsedResult = JSON.parse(result);
-    expect(parsedResult.message).to.include('out of bounds');
     expect(parsedResult.status).to.equal('error');
+    expect(parsedResult.message).to.include('out of bounds');
   });
 
   it('should return an error if the ending line is before the starting line', async () => {
-    const result = await editFileTool.execute({
+    const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: {
         starting_position_line_number: 4,
@@ -173,7 +174,7 @@ describe('EditFileTool', () => {
   });
 
   it('should return an error if the content at the starting line does not match', async () => {
-    const result = await editFileTool.execute({
+    const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: {
         starting_position_line_number: 2,
@@ -190,7 +191,7 @@ describe('EditFileTool', () => {
   });
 
   it('should return an error if the content at the ending line does not match', async () => {
-    const result = await editFileTool.execute({
+    const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: {
         starting_position_line_number: 2,
@@ -206,10 +207,10 @@ describe('EditFileTool', () => {
     expect(parsedResult.message).to.include('does not match expected content');
   });
 
-  it('should return canceled status if user does not approve the edit', async () => {
+  it('should return canceled status if user does not approve the patch', async () => {
     promptForApprovalStub.resolves(false);
 
-    const result = await editFileTool.execute({
+    const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: {
         starting_position_line_number: 2,
@@ -228,8 +229,8 @@ describe('EditFileTool', () => {
   it('should handle multiple changes in a single call correctly', async () => {
     // Set up a more complex file content for this test
     fsReadFileStub.resolves('line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7');
-    
-    const result = await editFileTool.execute({
+
+    const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: [
         {
@@ -254,23 +255,23 @@ describe('EditFileTool', () => {
     const parsedResult = JSON.parse(result);
     expect(parsedResult.status).to.equal('success');
     expect(fsWriteFileStub.calledOnce).to.be.true;
-    expect(fsWriteFileStub.calledOnce).to.be.true;
 
     // The expected content after both changes are applied
     const expectedContent = 'line 1\nmodified line 2\nmodified line 3\nline 4\nmodified line 5\nmodified line 6\nline 7';
     expect(fsWriteFileStub.firstCall.args[1]).to.equal(expectedContent);
-    
-    // Verify that changes were applied in the correct order
+
+    // Verify that changes were applied
+    // Assuming the tool returns the number of changes applied
     expect(parsedResult.changesApplied).to.equal(2);
   });
-  
+
   it('should apply changes in reverse order to avoid line number shifts', async () => {
     // Set up a file content for this test
     fsReadFileStub.resolves('line 1\nline 2\nline 3\nline 4\nline 5');
-    
+
     // This test specifically checks that changes are applied in reverse order
     // by line number to avoid line number shifts affecting subsequent edits
-    const result = await editFileTool.execute({
+    const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: [
         {
@@ -294,7 +295,7 @@ describe('EditFileTool', () => {
 
     const parsedResult = JSON.parse(result);
     expect(parsedResult.status).to.equal('success');
-    
+
     // The expected content after both changes are applied in the correct order
     // First the lines 4-5 change, then the lines 1-2 change
     const expectedContent = 'new line 1\nnew line 2\nline 3\nnew line 4\nnew line 5';
@@ -304,8 +305,8 @@ describe('EditFileTool', () => {
   it('should handle replacing a single line (start and end positions are the same)', async () => {
     // Set up a file content for this test
     fsReadFileStub.resolves('line 1\nline 2\nline 3\nline 4\nline 5');
-    
-    const result = await editFileTool.execute({
+
+    const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: {
         starting_position_line_number: 3,
@@ -318,7 +319,7 @@ describe('EditFileTool', () => {
 
     const parsedResult = JSON.parse(result);
     expect(parsedResult.status).to.equal('success');
-    
+
     // The expected content after the change is applied
     const expectedContent = 'line 1\nline 2\nreplaced line 3\nline 4\nline 5';
     expect(fsWriteFileStub.firstCall.args[1]).to.equal(expectedContent);
@@ -327,11 +328,11 @@ describe('EditFileTool', () => {
   it('should handle replacing few lines with many more lines', async () => {
     // Set up a file content for this test
     fsReadFileStub.resolves('line 1\nline 2\nline 3\nline 4\nline 5');
-    
+
     // Create a new content with 10 lines
     const newLines = Array.from({ length: 10 }, (_, i) => `new line ${i + 1}`).join('\n');
-    
-    const result = await editFileTool.execute({
+
+    const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: {
         starting_position_line_number: 2,
@@ -344,11 +345,11 @@ describe('EditFileTool', () => {
 
     const parsedResult = JSON.parse(result);
     expect(parsedResult.status).to.equal('success');
-    
+
     // The expected content after the change is applied
     const expectedContent = `line 1\n${newLines}\nline 4\nline 5`;
     expect(fsWriteFileStub.firstCall.args[1]).to.equal(expectedContent);
-    
+
     // Verify that the file now has 13 lines (1 + 10 + 2)
     const resultLines = fsWriteFileStub.firstCall.args[1].split('\n');
     expect(resultLines.length).to.equal(13);
@@ -357,8 +358,8 @@ describe('EditFileTool', () => {
   it('should handle complex scenarios with multiple changes of varying sizes', async () => {
     // Set up a more complex file content for this test
     fsReadFileStub.resolves('line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10');
-    
-    const result = await editFileTool.execute({
+
+    const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: [
         {
@@ -390,22 +391,22 @@ describe('EditFileTool', () => {
 
     const parsedResult = JSON.parse(result);
     expect(parsedResult.status).to.equal('success');
-    
+
     // The expected content after all changes are applied in the correct order
     // Changes should be applied from bottom to top to avoid line number shifts
     const expectedContent = 'line 1\nnew line 2-1\nnew line 2-2\nnew line 2-3\nline 3\nline 4\nnew combined line 5-7\nline 8\nline 9\nnew line 10';
     expect(fsWriteFileStub.firstCall.args[1]).to.equal(expectedContent);
-    
-    // Verify that changes were applied in the correct order
+
+    // Verify that changes were applied
     expect(parsedResult.changesApplied).to.equal(3);
   });
 
   it('should handle overlapping changes when new content increases file size', async () => {
     // Set up a file content for this test
     fsReadFileStub.resolves('line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10');
-    
+
     // Create changes that would overlap if applied in the wrong order
-    const result = await editFileTool.execute({
+    const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: [
         {
@@ -440,15 +441,15 @@ describe('EditFileTool', () => {
 
     const parsedResult = JSON.parse(result);
     expect(parsedResult.status).to.equal('success');
-    
+
     // The expected content after all changes are applied in the correct order (from bottom to top)
     // First apply change to line 9, then line 6, then line 3
     const expectedContent = 'line 1\nline 2\nexpanded line 3-1\nexpanded line 3-2\nexpanded line 3-3\nexpanded line 3-4\nexpanded line 3-5\nline 4\nline 5\nexpanded line 6-1\nexpanded line 6-2\nexpanded line 6-3\nline 7\nline 8\nexpanded line 9-1\nexpanded line 9-2\nline 10';
     expect(fsWriteFileStub.firstCall.args[1]).to.equal(expectedContent);
-    
-    // Verify that changes were applied in the correct order
+
+    // Verify that changes were applied
     expect(parsedResult.changesApplied).to.equal(3);
-    
+
     // Verify the resulting file has the correct number of lines
     // Original 10 lines + 4 extra from line 3 + 2 extra from line 6 + 1 extra from line 9 = 17 lines
     const resultLines = fsWriteFileStub.firstCall.args[1].split('\n');

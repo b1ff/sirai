@@ -3,7 +3,8 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { BaseTool, ensurePathInWorkingDir } from './base.js';
+import { BaseTool } from './base.js';
+import { FileSystemHelper } from './file-system-helper.js';
 
 const execAsync = promisify(exec);
 
@@ -54,7 +55,7 @@ export class WriteFileTool extends BaseTool {
   /**
    * The working directory
    */
-  private workingDir: string;
+  private fileSystemHelper: FileSystemHelper;
 
   /**
    * The function to prompt for user approval
@@ -71,7 +72,7 @@ export class WriteFileTool extends BaseTool {
     promptForApproval: (filePath: string, content: string) => Promise<boolean>
   ) {
     super();
-    this.workingDir = path.resolve(workingDir);
+    this.fileSystemHelper = new FileSystemHelper(workingDir);
     this.promptForApproval = promptForApproval;
   }
 
@@ -110,11 +111,8 @@ export class WriteFileTool extends BaseTool {
    */
   async execute(args: Record<string, unknown>): Promise<string> {
     try {
-      // Parse and validate arguments
       const { path: filePath, content, overwrite, encoding } = this.parameters.parse(args);
-
-      // Ensure the file is in the working directory
-      const resolvedPath = ensurePathInWorkingDir(filePath, this.workingDir);
+      const resolvedPath = this.fileSystemHelper.ensurePathInWorkingDir(filePath);
 
       // Check if the file exists
       let fileExists = false;
@@ -129,11 +127,11 @@ export class WriteFileTool extends BaseTool {
       let needsApproval = true;
 
       // Check if this is a git repository
-      const isGitRepo = await this.isGitRepository(this.workingDir);
+      const isGitRepo = await this.isGitRepository(this.fileSystemHelper.getWorkingDir());
 
       if (isGitRepo) {
         // Check if there are uncommitted changes
-        const hasChanges = await this.hasUncommittedChanges(this.workingDir);
+        const hasChanges = await this.hasUncommittedChanges(this.fileSystemHelper.getWorkingDir());
 
         // Skip permission prompt if repository has no uncommitted changes
         if (!hasChanges) {

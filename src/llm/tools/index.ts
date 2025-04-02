@@ -15,6 +15,7 @@ export * from './write-file.js';
 export * from './list-files.js';
 export * from './list-directories.js';
 export * from './edit-file.js';
+export * from './patch-file.js';
 export * from './store-plan.js';
 export * from './file-source-llm-preparation.js';
 export * from './ask-user.js';

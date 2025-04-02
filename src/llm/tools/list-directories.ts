@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import * as fs from 'fs/promises';
 import * as path from 'path';
+import { FileSystemHelper } from './file-system-helper.js';
 import { BaseTool, ensurePathInWorkingDir } from './base.js';
 
 /**
@@ -15,7 +15,7 @@ export class ListDirectoriesTool extends BaseTool {
   /**
    * The description of the tool
    */
-  description = 'List directories in the working directory with configurable depth. Limited to the working directory.';
+  description = 'List directories in the working directory with configurable depth. Respects .gitignore patterns. Limited to the working directory.';
 
   /**
    * The parameters of the tool
@@ -42,12 +42,18 @@ export class ListDirectoriesTool extends BaseTool {
   private workingDir: string;
 
   /**
+   * File system helper instance
+   */
+  private fileSystemHelper: FileSystemHelper;
+
+  /**
    * Constructor
    * @param workingDir - The working directory
    */
   constructor(workingDir: string) {
     super();
     this.workingDir = path.resolve(workingDir);
+    this.fileSystemHelper = new FileSystemHelper(this.workingDir);
   }
 
   /**
@@ -63,18 +69,15 @@ export class ListDirectoriesTool extends BaseTool {
       // Ensure the directory is in the working directory
       const listDir = ensurePathInWorkingDir(directory, this.workingDir);
 
-      // Check if the directory exists
-      try {
-        const stats = await fs.stat(listDir);
-        if (!stats.isDirectory()) {
-          throw new Error(`${directory} is not a directory`);
-        }
-      } catch (error) {
-        throw new Error(`Directory ${directory} does not exist`);
+      // Check if the directory exists and is a directory
+      if (!await this.fileSystemHelper.isDirectory(listDir)) {
+        throw new Error(`${directory} is not a directory or does not exist`);
       }
 
-      // List directories recursively
-      const directories = await this.listDirectoriesRecursively(listDir, depth);
+      // List directories recursively using FileSystemHelper
+      const directories = await this.fileSystemHelper.listDirectoriesRecursively(listDir, {
+        maxDepth: depth,
+      });
 
       // Format the results
       if (directories.length === 0) {
@@ -86,55 +89,5 @@ export class ListDirectoriesTool extends BaseTool {
       // Use the common error handling method from the base class
       return this.handleToolError(error);
     }
-  }
-
-  /**
-   * List directories recursively
-   * @param dir - The directory to list directories from
-   * @param maxDepth - The maximum depth to recurse
-   * @param currentDepth - The current depth (used internally)
-   * @returns The list of directories
-   */
-  private async listDirectoriesRecursively(
-    dir: string,
-    maxDepth: number,
-    currentDepth: number = 0
-  ): Promise<string[]> {
-    // If we've reached the maximum depth, stop recursing
-    if (currentDepth > maxDepth) {
-      return [];
-    }
-
-    // Read the directory
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    const result: string[] = [];
-
-    // Process each entry
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const fullPath = path.join(dir, entry.name);
-        const relativePath = path.relative(this.workingDir, fullPath);
-
-        // Skip .git directory
-        if (relativePath.startsWith('.git') || relativePath.startsWith('./.git')) {
-          continue;
-        }
-
-        // Add the directory to the result
-        result.push(`${relativePath}/`);
-
-        // Recurse into subdirectory if not at max depth
-        if (currentDepth < maxDepth) {
-          const subDirs = await this.listDirectoriesRecursively(
-            fullPath,
-            maxDepth,
-            currentDepth + 1
-          );
-          result.push(...subDirs);
-        }
-      }
-    }
-
-    return result;
   }
 }

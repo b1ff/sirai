@@ -11,7 +11,7 @@
     "start": "OPEN_AI_KEY=dummy node dist/index.js",
     "dev": "node --loader ts-node/esm src/index.ts",
     "build": "tsc",
-    "test": "mocha --require ts-node/register \"test/**/*.test.ts\""
+    "test": "mocha --exit --require ts-node/register \"test/**/*.test.ts\""
   },
   "keywords": [
     "cli",

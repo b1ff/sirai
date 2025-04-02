@@ -4,12 +4,14 @@ import * as path from 'path';
 import * as glob from 'glob';
 import { promisify } from 'util';
 import { BaseTool, ensurePathInWorkingDir } from './base.js';
+import { FileSystemHelper } from './file-system-helper.js';
 
 const globAsync = promisify(glob.glob);
 
 /**
  * Tool for finding files in the file system
  * Creates grep-like functionality limited to working directory
+ * Respects gitignore patterns to exclude ignored files
  */
 export class FindFilesTool extends BaseTool {
   /**
@@ -20,7 +22,7 @@ export class FindFilesTool extends BaseTool {
   /**
    * The description of the tool
    */
-  description = 'Find files in the file system matching a pattern. Limited to the working directory.';
+  description = 'Find files in the file system matching a pattern. Limited to the working directory. Respects gitignore patterns.';
 
   /**
    * The parameters of the tool
@@ -65,12 +67,18 @@ export class FindFilesTool extends BaseTool {
   private workingDir: string;
 
   /**
+   * File system helper for gitignore handling
+   */
+  private fileSystemHelper: FileSystemHelper;
+
+  /**
    * Constructor
    * @param workingDir - The working directory
    */
   constructor(workingDir: string) {
     super();
     this.workingDir = path.resolve(workingDir);
+    this.fileSystemHelper = new FileSystemHelper(this.workingDir);
   }
 
   /**
@@ -135,6 +143,12 @@ export class FindFilesTool extends BaseTool {
       };
 
       let files: string[] = (await globAsync(globPattern, options)) as string[];
+
+      // Filter out files that match gitignore patterns using FileSystemHelper
+      // First convert relative paths to absolute paths, then filter, then convert back to relative paths
+      files = this.fileSystemHelper
+          .filterGitignored(files.map(file => path.join(searchDir, file)))
+          .map(file => path.relative(searchDir, file));
 
       // If using regex, filter the results
       if (useRegex) {
