@@ -3,7 +3,7 @@ import { AppConfig, LLMFactory } from '../llm/factory.js';
 import { FileSystemUtils } from './file-system-utils.js';
 import { ComplexityLevel, ContextProfile, DirectoryStructure, LLMType, Subtask, TaskPlan, TaskType } from './schemas.js';
 import { v4 as uuidv4 } from 'uuid';
-import { BaseTool, StorePlanTool, FindFilesTool, ListFilesTool, ListDirectoriesTool, ReadFileTool } from '../llm/tools/index.js';
+import { BaseTool, StorePlanTool, FindFilesTool, ListFilesTool, ListDirectoriesTool, ReadFileTool, AskUserTool } from '../llm/tools/index.js';
 
 /**
  * Configuration for the LLM planner
@@ -165,6 +165,7 @@ export class LLMPlanner {
     const listFilesTool = new ListFilesTool(contextProfile.projectRoot);
     const listDirsTool = new ListDirectoriesTool(contextProfile.projectRoot);
     const extractPlanTool = new StorePlanTool();
+    const askUserTool = new AskUserTool();
 
     // Wrap tools with debug logging if debug is enabled
     const tools = this.debug 
@@ -172,9 +173,10 @@ export class LLMPlanner {
           this.wrapToolWithLogging(readFileTool),
           this.wrapToolWithLogging(listFilesTool),
           this.wrapToolWithLogging(listDirsTool),
-          this.wrapToolWithLogging(extractPlanTool)
+          this.wrapToolWithLogging(extractPlanTool),
+          this.wrapToolWithLogging(askUserTool)
         ]
-      : [readFileTool, listFilesTool, listDirsTool, extractPlanTool];
+      : [readFileTool, listFilesTool, listDirsTool, extractPlanTool, askUserTool];
 
     // 3. Create prompt for LLM
     const prompt = `
@@ -189,6 +191,11 @@ First, use the provided tools to explore the project and gather essential contex
 2. Dependencies and their versions
 3. Existing code patterns and architecture
 4. Configuration files and settings
+
+If you need clarification from the user, use the "ask_user" tool to ask specific questions. This is especially useful when:
+- The request is ambiguous or lacks necessary details
+- You need to confirm your understanding of requirements
+- You need to gather preferences about implementation approaches
 
 ## TASK PLANNING PHASE
 Based on the gathered context, create a precise implementation plan by breaking down the request into executable subtasks.
