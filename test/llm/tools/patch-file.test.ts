@@ -65,16 +65,13 @@ describe('PatchFileTool', () => {
     sinon.restore();
   });
 
-  it('should patch a file with valid line numbers and content', async () => {
+  it('should patch a file with valid content', async () => {
     const result = await patchFileTool.execute({
       file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 4,
-        end_position_current_content: 'line 4',
+      changes: [{
+        old_content: 'line 2\nline 3\nline 4',
         new_content: 'new line 2\nnew line 3\nnew line 4'
-      }
+      }]
     });
 
     const parsedResult = JSON.parse(result);
@@ -89,13 +86,10 @@ describe('PatchFileTool', () => {
   it('should return an error if the file is outside the working directory', async () => {
     const result = await patchFileTool.execute({
       file_path: '../outside.txt',
-      changes: {
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 4,
-        end_position_current_content: 'line 4',
+      changes: [{
+        old_content: 'line 2\nline 3\nline 4',
         new_content: 'new content'
-      }
+      }]
     });
 
     const parsedResult = JSON.parse(result);
@@ -108,13 +102,10 @@ describe('PatchFileTool', () => {
 
     const result = await patchFileTool.execute({
       file_path: 'nonexistent.txt',
-      changes: {
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 4,
-        end_position_current_content: 'line 4',
+      changes: [{
+        old_content: 'line 2\nline 3\nline 4',
         new_content: 'new content'
-      }
+      }]
     });
 
     const parsedResult = JSON.parse(result);
@@ -122,89 +113,18 @@ describe('PatchFileTool', () => {
     expect(parsedResult.message).to.include('does not exist');
   });
 
-  it('should return an error if the starting line number is out of bounds', async () => {
+  it('should return an error if the content is not found in the file', async () => {
     const result = await patchFileTool.execute({
       file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 10,
-        starting_position_current_content: 'line 10',
-        end_position_line_number: 12,
-        end_position_current_content: 'line 12',
+      changes: [{
+        old_content: 'content that does not exist',
         new_content: 'new content'
-      }
+      }]
     });
 
     const parsedResult = JSON.parse(result);
     expect(parsedResult.status).to.equal('error');
-    expect(parsedResult.message).to.include('out of bounds');
-  });
-
-  it('should return an error if the ending line number is out of bounds', async () => {
-    const result = await patchFileTool.execute({
-      file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 10,
-        end_position_current_content: 'line 10',
-        new_content: 'new content'
-      }
-    });
-
-    const parsedResult = JSON.parse(result);
-    expect(parsedResult.status).to.equal('error');
-    expect(parsedResult.message).to.include('out of bounds');
-  });
-
-  it('should return an error if the ending line is before the starting line', async () => {
-    const result = await patchFileTool.execute({
-      file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 4,
-        starting_position_current_content: 'line 4',
-        end_position_line_number: 2,
-        end_position_current_content: 'line 2',
-        new_content: 'new content'
-      }
-    });
-
-    const parsedResult = JSON.parse(result);
-    expect(parsedResult.status).to.equal('error');
-    expect(parsedResult.message).to.include('before starting line');
-  });
-
-  it('should return an error if the content at the starting line does not match', async () => {
-    const result = await patchFileTool.execute({
-      file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 2,
-        starting_position_current_content: 'wrong content',
-        end_position_line_number: 4,
-        end_position_current_content: 'line 4',
-        new_content: 'new content'
-      }
-    });
-
-    const parsedResult = JSON.parse(result);
-    expect(parsedResult.status).to.equal('error');
-    expect(parsedResult.message).to.include('does not match expected content');
-  });
-
-  it('should return an error if the content at the ending line does not match', async () => {
-    const result = await patchFileTool.execute({
-      file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 4,
-        end_position_current_content: 'wrong content',
-        new_content: 'new content'
-      }
-    });
-
-    const parsedResult = JSON.parse(result);
-    expect(parsedResult.status).to.equal('error');
-    expect(parsedResult.message).to.include('does not match expected content');
+    expect(parsedResult.message).to.include('Could not find the specified content');
   });
 
   it('should return canceled status if user does not approve the patch', async () => {
@@ -212,13 +132,10 @@ describe('PatchFileTool', () => {
 
     const result = await patchFileTool.execute({
       file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 4,
-        end_position_current_content: 'line 4',
+      changes: [{
+        old_content: 'line 2\nline 3\nline 4',
         new_content: 'new content'
-      }
+      }]
     });
 
     const parsedResult = JSON.parse(result);
@@ -235,18 +152,12 @@ describe('PatchFileTool', () => {
       changes: [
         {
           // First change: modify lines 2-3
-          starting_position_line_number: 2,
-          starting_position_current_content: 'line 2',
-          end_position_line_number: 3,
-          end_position_current_content: 'line 3',
+          old_content: 'line 2\nline 3',
           new_content: 'modified line 2\nmodified line 3'
         },
         {
           // Second change: modify lines 5-6
-          starting_position_line_number: 5,
-          starting_position_current_content: 'line 5',
-          end_position_line_number: 6,
-          end_position_current_content: 'line 6',
+          old_content: 'line 5\nline 6',
           new_content: 'modified line 5\nmodified line 6'
         }
       ]
@@ -265,29 +176,22 @@ describe('PatchFileTool', () => {
     expect(parsedResult.changesApplied).to.equal(2);
   });
 
-  it('should apply changes in reverse order to avoid line number shifts', async () => {
+  it('should apply changes in the order they are specified', async () => {
     // Set up a file content for this test
     fsReadFileStub.resolves('line 1\nline 2\nline 3\nline 4\nline 5');
 
-    // This test specifically checks that changes are applied in reverse order
-    // by line number to avoid line number shifts affecting subsequent edits
+    // This test checks that changes are applied in the order they are specified
     const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: [
         {
-          // First change in the array (but should be applied second)
-          starting_position_line_number: 1,
-          starting_position_current_content: 'line 1',
-          end_position_line_number: 2,
-          end_position_current_content: 'line 2',
+          // First change in the array
+          old_content: 'line 1\nline 2',
           new_content: 'new line 1\nnew line 2'
         },
         {
-          // Second change in the array (but should be applied first)
-          starting_position_line_number: 4,
-          starting_position_current_content: 'line 4',
-          end_position_line_number: 5,
-          end_position_current_content: 'line 5',
+          // Second change in the array
+          old_content: 'line 4\nline 5',
           new_content: 'new line 4\nnew line 5'
         }
       ]
@@ -296,25 +200,21 @@ describe('PatchFileTool', () => {
     const parsedResult = JSON.parse(result);
     expect(parsedResult.status).to.equal('success');
 
-    // The expected content after both changes are applied in the correct order
-    // First the lines 4-5 change, then the lines 1-2 change
+    // The expected content after both changes are applied in the specified order
     const expectedContent = 'new line 1\nnew line 2\nline 3\nnew line 4\nnew line 5';
     expect(fsWriteFileStub.firstCall.args[1]).to.equal(expectedContent);
   });
 
-  it('should handle replacing a single line (start and end positions are the same)', async () => {
+  it('should handle replacing a single line', async () => {
     // Set up a file content for this test
     fsReadFileStub.resolves('line 1\nline 2\nline 3\nline 4\nline 5');
 
     const result = await patchFileTool.execute({
       file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 3,
-        starting_position_current_content: 'line 3',
-        end_position_line_number: 3,
-        end_position_current_content: 'line 3',
+      changes: [{
+        old_content: 'line 3',
         new_content: 'replaced line 3'
-      }
+      }]
     });
 
     const parsedResult = JSON.parse(result);
@@ -334,13 +234,10 @@ describe('PatchFileTool', () => {
 
     const result = await patchFileTool.execute({
       file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 3,
-        end_position_current_content: 'line 3',
+      changes: [{
+        old_content: 'line 2\nline 3',
         new_content: newLines
-      }
+      }]
     });
 
     const parsedResult = JSON.parse(result);
@@ -364,26 +261,17 @@ describe('PatchFileTool', () => {
       changes: [
         {
           // Replace a single line with multiple lines
-          starting_position_line_number: 2,
-          starting_position_current_content: 'line 2',
-          end_position_line_number: 2,
-          end_position_current_content: 'line 2',
+          old_content: 'line 2',
           new_content: 'new line 2-1\nnew line 2-2\nnew line 2-3'
         },
         {
           // Replace multiple lines with a single line
-          starting_position_line_number: 5,
-          starting_position_current_content: 'line 5',
-          end_position_line_number: 7,
-          end_position_current_content: 'line 7',
+          old_content: 'line 5\nline 6\nline 7',
           new_content: 'new combined line 5-7'
         },
         {
           // Replace the last line
-          starting_position_line_number: 10,
-          starting_position_current_content: 'line 10',
-          end_position_line_number: 10,
-          end_position_current_content: 'line 10',
+          old_content: 'line 10',
           new_content: 'new line 10'
         }
       ]
@@ -401,39 +289,27 @@ describe('PatchFileTool', () => {
     expect(parsedResult.changesApplied).to.equal(3);
   });
 
-  it('should handle overlapping changes when new content increases file size', async () => {
+  it('should handle sequential changes that modify the same content', async () => {
     // Set up a file content for this test
     fsReadFileStub.resolves('line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10');
 
-    // Create changes that would overlap if applied in the wrong order
+    // Create changes that modify different parts of the file
     const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: [
         {
           // First change: Replace line 3 with 5 new lines
-          // This will shift all subsequent line numbers by +4
-          starting_position_line_number: 3,
-          starting_position_current_content: 'line 3',
-          end_position_line_number: 3,
-          end_position_current_content: 'line 3',
+          old_content: 'line 3',
           new_content: 'expanded line 3-1\nexpanded line 3-2\nexpanded line 3-3\nexpanded line 3-4\nexpanded line 3-5'
         },
         {
           // Second change: Replace line 6 with 3 new lines
-          // If first change is applied first, this line would now be at position 10
-          starting_position_line_number: 6,
-          starting_position_current_content: 'line 6',
-          end_position_line_number: 6,
-          end_position_current_content: 'line 6',
+          old_content: 'line 6',
           new_content: 'expanded line 6-1\nexpanded line 6-2\nexpanded line 6-3'
         },
         {
           // Third change: Replace line 9 with 2 new lines
-          // If previous changes are applied first, this line would be shifted
-          starting_position_line_number: 9,
-          starting_position_current_content: 'line 9',
-          end_position_line_number: 9,
-          end_position_current_content: 'line 9',
+          old_content: 'line 9',
           new_content: 'expanded line 9-1\nexpanded line 9-2'
         }
       ]

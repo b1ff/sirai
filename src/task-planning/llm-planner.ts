@@ -252,7 +252,39 @@ Implementation Details:
 
 7. EXECUTION ORDER: Create a logical sequence for implementation.
 
-ALWAYS call "store_plan" tool at the end of context gathering. 
+## VALIDATION INSTRUCTIONS
+
+After all subtasks are implemented, validation will be performed to ensure the solution meets requirements. Include detailed validation instructions in your task plan by adding a "validationInstructions" field.
+
+Your validation instructions should:
+
+1. COMPREHENSIVE TESTING: Include steps to verify all aspects of the implementation, from basic functionality to edge cases.
+
+2. SPECIFIC COMMANDS: Provide exact commands to run tests, build processes, or other verification steps using the RunProcessTool.
+
+3. EXPECTED RESULTS: Clearly describe what successful validation looks like - what outputs to expect, what behavior should be observed.
+
+4. TROUBLESHOOTING GUIDANCE: Include common issues that might arise and how to address them.
+
+5. MANUAL VERIFICATION: When automated testing isn't sufficient, provide clear steps for manual verification.
+
+Format your validation instructions as a series of numbered steps, with each step containing:
+- The validation action to perform (e.g., run a command, check a file)
+- The expected outcome
+- How to interpret the results
+
+Example:
+"""
+1. Run 'npm run build' to verify the code compiles without errors
+   - Expected: No TypeScript errors, successful build
+   - If errors occur: Check the specific files mentioned in error messages
+
+2. Run 'npm run test' to execute unit tests
+   - Expected: All tests pass with no failures
+   - If tests fail: Review the test output to identify which functionality is broken
+"""
+
+ALWAYS call "store_plan" tool at the end of context gathering. Make sure to include the "validationInstructions" field in your plan with detailed steps for validating the implementation.
 
 After the plan is saved successfully, provide a concise summary of your understanding of the task and the approach you've outlined.
 `;
@@ -323,7 +355,8 @@ After the plan is saved successfully, provide a concise summary of your understa
         originalRequest: request,
         overallComplexity,
         subtasks,
-        executionOrder
+        executionOrder,
+        validationInstructions: savedPlan.validationInstructions
       };
     } catch (error) {
       console.error(`Error generating task plan with LLM: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -341,7 +374,8 @@ After the plan is saved successfully, provide a concise summary of your understa
         originalRequest: request,
         overallComplexity: ComplexityLevel.MEDIUM,
         subtasks: [subtask],
-        executionOrder: [subtask.id]
+        executionOrder: [subtask.id],
+        validationInstructions: "Run basic tests to verify the implementation works as expected."
       };
     }
   }
@@ -453,7 +487,13 @@ After the plan is saved successfully, provide a concise summary of your understa
       return index !== -1 ? index + 1 : '?';
     });
 
-    explanation += `${executionOrderIndices.join(' → ')}\n`;
+    explanation += `${executionOrderIndices.join(' → ')}\n\n`;
+
+    // Add validation instructions if available
+    if (taskPlan.validationInstructions) {
+      explanation += `## Validation Instructions\n\n`;
+      explanation += `${taskPlan.validationInstructions}\n\n`;
+    }
 
     // If markdown renderer is available, use it to render the explanation
     if (this.markdownRenderer) {

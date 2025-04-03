@@ -31,7 +31,8 @@ const TaskPlanSchema = z.object({
   subtasks: z.array(SubtaskSchema).describe('List of subtasks that make up the complete task'),
   executionOrder: z.array(z.string()).optional().describe('The recommended order of subtask execution by ID'),
   overallComplexity: z.enum([ComplexityLevel.LOW, ComplexityLevel.MEDIUM, ComplexityLevel.HIGH]).optional()
-    .describe('The overall complexity assessment of the entire task')
+  .describe('The overall complexity assessment of the entire task'),
+  validationInstructions: z.string().optional().describe('Instructions for validating the task execution')
 }).describe('A complete plan for executing a complex task, broken down into subtasks');
 
 /**

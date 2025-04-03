@@ -59,10 +59,10 @@ export class ExecutingTasksState implements State {
         basePrompt
       );
 
-      return StateType.WAITING_FOR_INPUT;
+      return StateType.VALIDATING_TASKS;
     } catch (error) {
       console.error(chalk.red(`Error executing tasks: ${error instanceof Error ? error.message : 'Unknown error'}`));
-      return StateType.WAITING_FOR_INPUT;
+      return StateType.VALIDATING_TASKS;
     }
   }
 

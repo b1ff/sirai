@@ -4,7 +4,7 @@ import inquirer from 'inquirer';
 import { BaseLLM } from '../../llm/base.js';
 import { MarkdownRenderer } from '../../utils/markdown-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
-import { WriteFileTool, EditFileTool, PatchFileTool } from '../../llm/tools/index.js';
+import { WriteFileTool, EditFileTool, PatchFileTool, RunProcessTool } from '../../llm/tools/index.js';
 import { FileToRead } from '../../task-planning/schemas.js';
 import { FileSourceLlmPreparation } from '../../llm/tools/file-source-llm-preparation.js';
 
@@ -68,8 +68,8 @@ Current working directory: '${projectDir}'
       const response = await llm.generate(undefined, `${prompt}\n<user_input>${userInput}</user_input>`, {
         // Enable function calling
         tools: [
-          new EditFileTool(projectDir),
-          // new PatchFileTool(projectDir),
+          // new EditFileTool(projectDir),
+          new PatchFileTool(projectDir),
           new WriteFileTool(projectDir, async (filePath, content) => {
             spinner.stop();
             const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
@@ -178,5 +178,54 @@ The files have been created/modified as requested.`;
     console.log('\n');
 
     return true;
+  }
+
+  public async validateTaskExecution(validationInstructions: string, executedTaskPlan: string, llm: BaseLLM): Promise<{ passed: boolean, feedback: string }> {
+    try {
+      console.log(chalk.blue('\nValidating task execution...'));
+
+      // Display provider and model information
+      console.log(chalk.cyan(`Using ${llm.getProviderWithModel()} for validation`));
+
+      // Create a spinner
+      const spinner = ora('Validating...').start();
+
+      // Get project directory
+      const projectDir = this.projectContext.getProjectContext().projectRoot;
+
+      // Execute the validation with function calling enabled
+      const response = await llm.generate(undefined, `${validationInstructions}\n<executed_task_plan>${executedTaskPlan}</executed_task_plan>`, {
+        // Enable function calling
+        tools: [
+          new RunProcessTool({ trustedCommands: [] }, async (command: string) => {
+            spinner.stop();
+            const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
+              {
+                type: 'list',
+                name: 'confirmation',
+                message: `Do you approve running the command: ${command}?`,
+                choices: ['Yes', 'No'],
+                default: 'Yes'
+              }
+            ]);
+
+            spinner.start("Validating...");
+            return confirmation === 'Yes';
+          })
+        ],
+      });
+
+      spinner.stop();
+      console.log(chalk.green('\nValidation completed'));
+
+      // Parse the response to determine if validation passed or failed
+      const validationPassed = response.includes('Validation Passed');
+      const feedback = this.markdownRenderer.render(response);
+
+      return { passed: validationPassed, feedback };
+    } catch (error) {
+      console.error(chalk.red(`Error during validation: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      return { passed: false, feedback: 'Validation failed due to an error.' };
+    }
   }
 }

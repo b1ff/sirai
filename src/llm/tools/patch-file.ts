@@ -8,11 +8,10 @@ import { FileSourceLlmPreparation } from './file-source-llm-preparation.js';
  * Schema for a single patch operation.
  */
 const patchSchema = z.object({
-  find_pattern: z.string()
-    .min(1)
-    .describe('The exact text pattern to find in the file.'),
-  replacement_content: z.string()
-    .describe('The content to replace the found pattern with.'),
+  old_content: z.string()
+    .describe('The current content to be replaced.'),
+  new_content: z.string()
+    .describe('The new content to replace the old content with.'),
 });
 
 /**
@@ -21,19 +20,18 @@ const patchSchema = z.object({
 const patchFileParametersSchema = z.object({
   file_path: z.string()
     .describe('The file path to patch (relative to working directory). Pay attention to the file path within <file> tags if provided in the prompt.'),
-  patches: z.array(patchSchema)
-    .min(1)
-    .describe('An array of patch operations to apply sequentially. Each patch finds the first occurrence of a pattern and replaces it.')
+  changes:
+    z.array(patchSchema).min(1)
+    .describe('A single change or an array of changes to apply to the file. Each change specifies old content to find and new content to replace it with.')
 });
 
 /**
- * A tool for patching files by finding and replacing text patterns.
- * This tool operates based on content patterns rather than line numbers,
- * offering a more robust way to apply changes when line numbers might shift.
+ * A tool for patching files by replacing content.
+ * This tool operates by finding the old content and replacing it with new content.
  */
 export class PatchFileTool extends BaseTool {
   name = 'patch_file';
-  description = 'Patches a file by finding and replacing text patterns sequentially. Finds the first occurrence of each pattern and replaces it. Supports multiple patches in a single call. Limited to the working directory.';
+  description = 'Patches a file by finding and replacing content. Supports multiple changes in a single call. Limited to the working directory.';
   parameters = patchFileParametersSchema;
 
   /**
@@ -89,8 +87,20 @@ export class PatchFileTool extends BaseTool {
       return handleZodError(error);
     }
 
-    const { file_path: file, patches } = parsedArgs;
-    const filePath = ensurePathInWorkingDir(file, this.workingDir);
+    const { file_path: file, changes } = parsedArgs;
+
+    let filePath: string;
+    try {
+      filePath = ensurePathInWorkingDir(file, this.workingDir);
+    } catch (error) {
+      return JSON.stringify({ 
+        status: 'error', 
+        message: `${file} is outside the working directory` 
+      });
+    }
+
+    // Normalize changes to an array
+    const changesArray = Array.isArray(changes) ? changes : [changes];
 
     let originalContent: string;
     try {
@@ -100,54 +110,69 @@ export class PatchFileTool extends BaseTool {
       }
       originalContent = await this.fs.readFile(filePath, 'utf8');
     } catch (error) {
-      if (error instanceof Error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return JSON.stringify({ status: 'error', message: `File not found: ${file}` });
+      // Check for file not found errors - either by code or message
+      if (
+        (error instanceof Error && (error as NodeJS.ErrnoException).code === 'ENOENT') ||
+        (error instanceof Error && error.message.includes('not found'))
+      ) {
+        return JSON.stringify({ status: 'error', message: `File ${file} does not exist` });
       }
       return JSON.stringify({ status: 'error', message: `Error accessing file ${file}: ${error instanceof Error ? error.message : String(error)}` });
     }
 
+    // We'll work with the full content as a string
     let currentContent = originalContent;
-    const appliedPatchesInfo: { find_pattern: string; replacement_content: string; index: number }[] = [];
+
+    // No need to sort changes as we're working with content directly
+    const sortedChanges = [...changesArray];
+
+    const appliedChangesInfo: { 
+      old_content: string;
+      new_content: string 
+    }[] = [];
+
     let diff = `File: ${file}
 `;
-    diff += `Applying ${patches.length} sequential patch(es):
+    diff += `Applying ${sortedChanges.length} sequential change(s):
 
 `;
 
-    for (let i = 0; i < patches.length; i++) {
-      const patch = patches[i];
-      const index = currentContent.indexOf(patch.find_pattern);
+    // Apply each change
+    for (let i = 0; i < sortedChanges.length; i++) {
+      const change = sortedChanges[i];
+      const { old_content, new_content } = change;
 
-      if (index === -1) {
-        // Try to provide context if a patch fails
-        const fileSourcePrep = new FileSourceLlmPreparation([{ path: filePath, syntax: path.extname(filePath) }], this.workingDir);
-        const currentFileState = await fileSourcePrep.renderForLlm(true);
+      // Check if old_content exists in the current content
+      if (!currentContent.includes(old_content)) {
         return JSON.stringify({
           status: 'error',
-          message: `Patch #${i + 1} failed: Pattern not found.`,
-          failed_pattern: patch.find_pattern,
-          patches_applied_successfully: appliedPatchesInfo.length,
-          current_file_content_before_failure: currentFileState, // Show content as it was when the pattern was searched
-          suggestion: 'Verify the pattern exists in the current state of the file or adjust the pattern. Ensure previous patches did not unintentionally remove or alter the pattern.'
+          message: `Change #${i + 1} failed: Could not find the specified content in the file.`,
+          expected: old_content
         });
       }
 
-      // Build diff segment for this patch
-      const { lineNumber, columnNumber } = this.getLineAndColumn(currentContent, index);
-      diff += `--- Patch #${i + 1} ---
+      // Build diff segment for this change
+      diff += `--- Change #${i + 1} ---
 `;
-      diff += `Finding pattern at Line ${lineNumber}, Column ${columnNumber}:
-"${patch.find_pattern}"
+      diff += `Replacing:
+"${old_content}"
 `;
-      diff += `Replacing with:
-"${patch.replacement_content}"
+      diff += `With:
+"${new_content}"
 
 `;
 
-      // Apply the replacement
-      currentContent = currentContent.substring(0, index) + patch.replacement_content + currentContent.substring(index + patch.find_pattern.length);
-      appliedPatchesInfo.push({ ...patch, index });
+      // Apply the change
+      currentContent = currentContent.replace(old_content, new_content);
+
+      appliedChangesInfo.push({
+        old_content,
+        new_content
+      });
     }
+
+    // Use the updated content
+    const newContent = currentContent;
 
     // Get approval if configured
     const approved = await this.promptForApproval(filePath, diff);
@@ -160,15 +185,15 @@ export class PatchFileTool extends BaseTool {
 
     try {
       // Write the fully patched content back to the file
-      await this.fs.writeFile(filePath, currentContent, 'utf8');
+      await this.fs.writeFile(filePath, newContent, 'utf8');
 
       const fileSourcePrep = new FileSourceLlmPreparation([{ path: filePath, syntax: path.extname(filePath) }], this.workingDir);
       const newContentForLlm = await fileSourcePrep.renderForLlm(false);
 
       return JSON.stringify({
         status: 'success',
-        message: `File ${file} patched successfully with ${appliedPatchesInfo.length} changes.`,
-        patchesApplied: appliedPatchesInfo.length,
+        message: `File ${file} patched successfully with ${appliedChangesInfo.length} changes.`,
+        changesApplied: appliedChangesInfo.length,
         newContent: newContentForLlm
       });
     } catch (error) {

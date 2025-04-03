@@ -77,6 +77,26 @@ export interface Subtask {
 }
 
 /**
+ * Validation result status
+ */
+export enum ValidationStatus {
+  PASSED = 'passed',
+  FAILED = 'failed',
+  PENDING = 'pending'
+}
+
+/**
+ * Interface for validation result
+ */
+export interface ValidationResult {
+  status: ValidationStatus;
+  message: string;
+  failedTasks?: string[];
+  suggestedFixes?: string;
+  [key: string]: unknown;
+}
+
+/**
  * Interface for the complete task plan
  */
 export interface TaskPlan {
@@ -84,6 +104,14 @@ export interface TaskPlan {
   overallComplexity: ComplexityLevel;
   subtasks: Subtask[];
   executionOrder: string[];
+  /**
+   * Optional validation instructions for the task plan
+   */
+  validationInstructions?: string;
+  /**
+   * Validation result after task execution
+   */
+  validationResult?: ValidationResult;
 }
 
 /**
