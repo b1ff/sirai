@@ -84,24 +84,24 @@ export class ReadFileTool extends BaseTool {
     try {
       // Parse and validate arguments
       const { path: filePaths, encoding } = this.parameters.parse(args);
-      
+
       // Create FileToRead objects for each path
       const filesToRead = await Promise.all(filePaths.map(async (filePath) => {
         try {
           // Use FileSystemHelper to resolve and validate the path
           const resolvedPath = this.fileSystemHelper.ensurePathInWorkingDir(filePath);
-          
+
           // Check if the file exists
           try {
             await this.fs.access(resolvedPath);
           } catch (error) {
             throw new Error(`File ${filePath} does not exist`);
           }
-          
+
           // Determine file syntax based on extension
           const extension = filePath.split('.').pop() || '';
           const syntax = this.getFileSyntax(extension);
-          
+
           return {
             path: resolvedPath,
             syntax
@@ -113,7 +113,7 @@ export class ReadFileTool extends BaseTool {
           throw new Error(`Invalid file path: ${filePath}`);
         }
       }));
-      
+
       // Use FileSourceLlmPreparation to format the files
       const filePreparation = new this.fileSourceLlmPreparationClass(filesToRead, this.workingDir);
       return await filePreparation.renderForLlm(false); // true to include line numbers
