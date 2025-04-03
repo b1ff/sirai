@@ -4,8 +4,10 @@ import inquirer from 'inquirer';
 import { BaseLLM } from '../../llm/base.js';
 import { MarkdownRenderer } from '../../utils/markdown-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
-import { WriteFileTool, EditFileTool, PatchFileTool, RunProcessTool } from '../../llm/tools/index.js';
-import { FileToRead } from '../../task-planning/schemas.js';
+import { WriteFileTool, PatchFileTool, RunProcessTool } from '../../llm/tools/index.js';
+import { Subtask, TaskPlan } from '../../task-planning/schemas.js';
+import { TaskStatus } from '../interactive/task-types.js';
+import { TaskHistoryManager } from '../../utils/task-history-manager.js';
 import { FileSourceLlmPreparation } from '../../llm/tools/file-source-llm-preparation.js';
 
 /**
@@ -14,6 +16,7 @@ import { FileSourceLlmPreparation } from '../../llm/tools/file-source-llm-prepar
 export class TaskExecutor {
   private markdownRenderer: MarkdownRenderer;
   private projectContext: ProjectContext;
+  private taskHistoryManager: TaskHistoryManager;
 
   /**
    * Creates a new task executor
@@ -22,10 +25,12 @@ export class TaskExecutor {
    */
   constructor(
     markdownRenderer: MarkdownRenderer,
-    projectContext: ProjectContext
+    projectContext: ProjectContext,
+    taskHistoryManager: TaskHistoryManager
   ) {
     this.markdownRenderer = markdownRenderer;
     this.projectContext = projectContext;
+    this.taskHistoryManager = taskHistoryManager;
   }
 
   public createTaskPrompt(): string {
@@ -100,7 +105,7 @@ Current working directory: '${projectDir}'
   }
 
   public async executeSubtasks(
-    subtasks: Array<{ id: string; taskSpecification: string; filesToRead?: FileToRead[] }>,
+    subtasks: Subtask[],
     executionOrder: string[],
     llm: BaseLLM,
     compiledHistory: string
@@ -120,6 +125,9 @@ Current working directory: '${projectDir}'
     // Execute each subtask
     for (let i = 0; i < orderedSubtasks.length; i++) {
       const subtask = orderedSubtasks[i];
+      
+      // Mark subtask as IN_PROGRESS
+      subtask.status = TaskStatus.IN_PROGRESS;
       console.log(chalk.yellow(`\nExecuting Task ${i + 1}/${orderedSubtasks.length}: ${subtask.taskSpecification}`));
 
       // Get project directory
@@ -129,7 +137,7 @@ Current working directory: '${projectDir}'
       let fileContents = '';
       if (subtask.filesToRead && subtask.filesToRead.length > 0) {
         const filePreparation = new FileSourceLlmPreparation(subtask.filesToRead, projectDir);
-        fileContents = await filePreparation.renderForLlm(true); // true to include line numbers
+        fileContents = await filePreparation.renderForLlm(false); // true to include line numbers
       }
 
       // Create a task-specific prompt using the shared method
@@ -157,10 +165,24 @@ Current working directory: '${projectDir}'
         }
       }
       
-      // If all retries failed for this subtask, return false to indicate failure
+      // If all retries failed for this subtask, mark as FAILED and return false
       if (!success) {
+        subtask.status = TaskStatus.FAILED;
         return false;
       }
+      
+      // Mark subtask as COMPLETED and add to history
+      subtask.status = TaskStatus.COMPLETED;
+      
+      // Create a minimal TaskPlan from the subtask to pass to addCompletedTask
+      const taskPlan: TaskPlan = {
+        originalRequest: subtask.taskSpecification,
+        overallComplexity: subtask.complexity,
+        subtasks: [subtask],
+        executionOrder: [subtask.id],
+        completedAt: Date.now()
+      };
+      this.taskHistoryManager.addCompletedTask(taskPlan);
     }
 
     console.log(chalk.cyan('\n--- All Tasks Completed ---\n'));
@@ -168,7 +190,12 @@ Current working directory: '${projectDir}'
     // Create a summary response
     const summary = `I've completed all the tasks in the plan. Here's a summary of what was done:
 
-${orderedSubtasks.map((subtask, index) => `${index + 1}. ${subtask.taskSpecification}`).join('\n')}
+${orderedSubtasks.map((subtask, index) => {
+      const statusIcon = subtask.status === TaskStatus.COMPLETED ? '✅' : 
+                        subtask.status === TaskStatus.FAILED ? '❌' : 
+                        subtask.status === TaskStatus.IN_PROGRESS ? '⏳' : '⏱️';
+      return `${index + 1}. ${statusIcon} [${subtask.status}] ${subtask.taskSpecification}`;
+    }).join('\n')}
 
 The files have been created/modified as requested.`;
 
@@ -189,9 +216,6 @@ The files have been created/modified as requested.`;
 
       // Create a spinner
       const spinner = ora('Validating...').start();
-
-      // Get project directory
-      const projectDir = this.projectContext.getProjectContext().projectRoot;
 
       // Execute the validation with function calling enabled
       const response = await llm.generate(undefined, `${validationInstructions}\n<executed_task_plan>${executedTaskPlan}</executed_task_plan>`, {

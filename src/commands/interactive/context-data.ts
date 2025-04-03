@@ -6,6 +6,7 @@ import { MarkdownRenderer } from '../../utils/markdown-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
 import { PromptManager } from '../../utils/prompt-manager.js';
 import { ChatHistoryManager } from '../../utils/chat-history-manager.js';
+import { TaskHistoryManager } from '../../utils/task-history-manager.js';
 import { ConversationManager } from './conversation-manager.js';
 import { CommandHandler } from './command-handler.js';
 import { TaskExecutor } from './task-executor.js';
@@ -31,6 +32,7 @@ export class ContextData {
   private initialPrompt: string;
   private isActive: boolean;
   private markdownRenderer: MarkdownRenderer;
+  private taskHistoryManager: TaskHistoryManager;
 
   constructor(options: CommandOptions, config: AppConfig) {
     this.projectContext = new Map<string, any>();
@@ -51,6 +53,7 @@ export class ContextData {
     const projectContext = new ProjectContext(config);
     const promptManager = new PromptManager(config);
     const chatHistoryManager = new ChatHistoryManager(config);
+    this.taskHistoryManager = new TaskHistoryManager(config);
 
     // Create task planner with debug option if provided
     const taskPlanningConfig = {
@@ -78,6 +81,7 @@ export class ContextData {
     this.taskExecutor = new TaskExecutor(
       new MarkdownRenderer(config, codeRenderer),
       projectContext,
+      this.taskHistoryManager
     );
 
     // Add project context
@@ -104,6 +108,10 @@ export class ContextData {
 
   public getTaskPlanner(): LLMPlanner {
     return this.taskPlanner;
+  }
+
+  public getTaskHistoryManager(): TaskHistoryManager {
+    return this.taskHistoryManager;
   }
 
   public getOptions(): CommandOptions {

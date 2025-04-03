@@ -7,6 +7,7 @@ import { LLMFactory } from '../llm/factory.js';
 import { CodeRenderer } from '../utils/code-renderer.js';
 import { ProjectContext } from '../utils/project-context.js';
 import { TaskExecutor } from './interactive/task-executor.js';
+import { TaskHistoryManager } from '../utils/task-history-manager.js';
 import { Subtask, FileToRead } from '../task-planning/schemas.js';
 import { FileSourceLlmPreparation } from '../llm/tools/file-source-llm-preparation.js';
 import { MarkdownRenderer } from '../utils/markdown-renderer.js';
@@ -110,7 +111,8 @@ export async function executeTaskDirectly(options: CommandOptions, config: AppCo
     const projectContext = new ProjectContext(config);
 
     // Create task executor
-    const taskExecutor = new TaskExecutor(new MarkdownRenderer(config, codeRenderer), projectContext);
+    const taskHistoryManager = new TaskHistoryManager(config);
+    const taskExecutor = new TaskExecutor(new MarkdownRenderer(config, codeRenderer), projectContext, taskHistoryManager);
 
     // Execute the task
     console.log(chalk.blue('\nExecuting task...'));

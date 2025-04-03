@@ -3,6 +3,8 @@ import { State } from './state.js';
 import { StateContext } from './state-context.js';
 import { StateType } from './state-types.js';
 import { ConversationContext } from './types.js';
+import { TaskPlan, Subtask } from '../../task-planning/schemas.js';
+import { TaskStatus } from '../interactive/task-types.js';
 
 /**
  * State for executing tasks
@@ -67,7 +69,49 @@ export class ExecutingTasksState implements State {
   }
 
   public enter(context: StateContext): void {
-    // Nothing to do
+    try {
+      // Display task history summary if available
+      const taskHistory = context.getContextData().getTaskHistoryManager().getCompletedTasks();
+      
+      if (taskHistory && taskHistory.length > 0) {
+        const historyMarkdown = this.formatTaskHistorySummary(taskHistory);
+        console.log(chalk.cyan('\n=== Previous Task History ==='));
+        context.getContextData().getMarkdownRenderer().render(historyMarkdown);
+        console.log(chalk.cyan('=== Starting New Tasks ===\n'));
+      }
+    } catch (error) {
+      console.error(chalk.yellow(`Unable to display task history: ${error instanceof Error ? error.message : 'Unknown error'}`));
+    }
+  }
+
+  /**
+   * Formats the task history into a markdown summary
+   */
+  private formatTaskHistorySummary(taskHistory: TaskPlan[]): string {
+    let markdown = '### Recently Completed Tasks\n\n';
+    
+    // Show the most recent tasks first (up to 5)
+    const recentTasks = taskHistory.slice(-5).reverse();
+    
+    if (recentTasks.length === 0) {
+      return '';
+    }
+    
+    recentTasks.forEach((task, index) => {
+      markdown += `**${index + 1}. ${task.originalRequest ? task.originalRequest.substring(0, 50) + '...' : 'Untitled Task'}**\n`;
+      
+      if (task.subtasks && task.subtasks.length > 0) {
+        markdown += '   Subtasks:\n';
+        task.subtasks.forEach((subtask: Subtask) => {
+          const status = subtask.status === TaskStatus.COMPLETED ? '✅' : '⏳';
+          markdown += `   - ${status} ${subtask.taskSpecification || 'Untitled Subtask'}\n`;
+        });
+      }
+      
+      markdown += '\n';
+    });
+    
+    return markdown;
   }
 
   public exit(context: StateContext): void {

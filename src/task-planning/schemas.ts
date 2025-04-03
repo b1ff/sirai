@@ -1,6 +1,7 @@
 /**
  * JSON schemas for task planning component
  */
+import { TaskStatus } from '../commands/interactive/task-types.js';
 
 /**
  * Task types supported by the system
@@ -74,6 +75,7 @@ export interface Subtask {
   llmType: LLMType;
   dependencies: string[];
   filesToRead?: FileToRead[];
+  status?: TaskStatus; // Default is TaskStatus.PENDING
 }
 
 /**
@@ -112,6 +114,11 @@ export interface TaskPlan {
    * Validation result after task execution
    */
   validationResult?: ValidationResult;
+
+  /**
+   * Timestamp when the task was completed
+   */
+  completedAt?: number;
 }
 
 /**

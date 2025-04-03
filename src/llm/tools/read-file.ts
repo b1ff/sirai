@@ -116,7 +116,7 @@ export class ReadFileTool extends BaseTool {
       
       // Use FileSourceLlmPreparation to format the files
       const filePreparation = new this.fileSourceLlmPreparationClass(filesToRead, this.workingDir);
-      return await filePreparation.renderForLlm(true); // true to include line numbers
+      return await filePreparation.renderForLlm(false); // true to include line numbers
     } catch (error) {
       // Use the common error handling method from the base class
       return this.handleToolError(error);
