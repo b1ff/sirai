@@ -46,6 +46,7 @@ describe('ConfigBuilder', () => {
     output: {
       colorEnabled: true,
       syntaxHighlighting: true,
+      markdownRendering: true,
     },
     prompts: {
       directory: '/test/prompts',

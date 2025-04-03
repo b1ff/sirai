@@ -116,7 +116,8 @@ export async function createRealLLM(): Promise<BaseLLM> {
     },
     output: {
       colorEnabled: true,
-      syntaxHighlighting: true
+      syntaxHighlighting: true,
+      markdownRendering: true,
     },
     prompts: {
       directory: '.sirai/prompts'

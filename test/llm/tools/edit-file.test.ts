@@ -68,10 +68,10 @@ describe('EditFileTool', () => {
     const result = await editFileTool.execute({
       file_path: 'test.txt',
       changes: [{
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 4,
-        end_position_current_content: 'line 4',
+        replace_start_line_number: 2,
+        replace_start_line_content: 'line 2',
+        replace_end_line_number: 4,
+        replace_end_line_content: 'line 4',
         new_content: 'new line 2\nnew line 3\nnew line 4'
       }]
     });
@@ -89,10 +89,10 @@ describe('EditFileTool', () => {
     const result = await editFileTool.execute({
       file_path: '../outside.txt',
       changes: [{
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 4,
-        end_position_current_content: 'line 4',
+        replace_start_line_number: 2,
+        replace_start_line_content: 'line 2',
+        replace_end_line_number: 4,
+        replace_end_line_content: 'line 4',
         new_content: 'new content'
       }]
     });
@@ -108,27 +108,27 @@ describe('EditFileTool', () => {
     const result = await editFileTool.execute({
       file_path: 'nonexistent.txt',
       changes: [{
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 4,
-        end_position_current_content: 'line 4',
+        replace_start_line_number: 2,
+        replace_start_line_content: 'line 2',
+        replace_end_line_number: 4,
+        replace_end_line_content: 'line 4',
         new_content: 'new content'
       }]
     });
 
     const parsedResult = JSON.parse(result);
     expect(parsedResult.status).to.equal('error');
-    expect(parsedResult.message).to.include('does not exist');
+    expect(parsedResult.message).to.include('File nonexistent.txt does not exist');
   });
 
   it('should return an error if the starting line number is out of bounds', async () => {
     const result = await editFileTool.execute({
       file_path: 'test.txt',
       changes: [{
-        starting_position_line_number: 10,
-        starting_position_current_content: 'line 10',
-        end_position_line_number: 12,
-        end_position_current_content: 'line 12',
+        replace_start_line_number: 10,
+        replace_start_line_content: 'line 10',
+        replace_end_line_number: 12,
+        replace_end_line_content: 'line 12',
         new_content: 'new content'
       }]
     });
@@ -142,10 +142,10 @@ describe('EditFileTool', () => {
     const result = await editFileTool.execute({
       file_path: 'test.txt',
       changes: [{
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 10,
-        end_position_current_content: 'line 10',
+        replace_start_line_number: 2,
+        replace_start_line_content: 'line 2',
+        replace_end_line_number: 10,
+        replace_end_line_content: 'line 10',
         new_content: 'new content'
       }]
     });
@@ -158,52 +158,52 @@ describe('EditFileTool', () => {
   it('should return an error if the ending line is before the starting line', async () => {
     const result = await editFileTool.execute({
       file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 4,
-        starting_position_current_content: 'line 4',
-        end_position_line_number: 2,
-        end_position_current_content: 'line 2',
+      changes: [{
+        replace_start_line_number: 4,
+        replace_start_line_content: 'line 4',
+        replace_end_line_number: 2,
+        replace_end_line_content: 'line 2',
         new_content: 'new content'
-      }
+      }]
     });
 
     const parsedResult = JSON.parse(result);
     expect(parsedResult.status).to.equal('error');
-    expect(parsedResult.message).to.include('before starting line');
+    expect(parsedResult.message).to.include('Ending line number 2 is before starting line number 4');
   });
 
   it('should return an error if the content at the starting line does not match', async () => {
     const result = await editFileTool.execute({
       file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 2,
-        starting_position_current_content: 'wrong content',
-        end_position_line_number: 4,
-        end_position_current_content: 'line 4',
+      changes: [{
+        replace_start_line_number: 2,
+        replace_start_line_content: 'wrong content',
+        replace_end_line_number: 4,
+        replace_end_line_content: 'line 4',
         new_content: 'new content'
-      }
+      }]
     });
 
     const parsedResult = JSON.parse(result);
     expect(parsedResult.status).to.equal('error');
-    expect(parsedResult.message).to.include('does not match expected content');
+    expect(parsedResult.message).to.include('Content at starting line does not match expected content');
   });
 
   it('should return an error if the content at the ending line does not match', async () => {
     const result = await editFileTool.execute({
       file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 4,
-        end_position_current_content: 'wrong content',
+      changes: [{
+        replace_start_line_number: 2,
+        replace_start_line_content: 'line 2',
+        replace_end_line_number: 4,
+        replace_end_line_content: 'wrong content',
         new_content: 'new content'
-      }
+      }]
     });
 
     const parsedResult = JSON.parse(result);
     expect(parsedResult.status).to.equal('error');
-    expect(parsedResult.message).to.include('does not match expected content');
+    expect(parsedResult.message).to.include('Content at ending line does not match expected content');
   });
 
   it('should return canceled status if user does not approve the edit', async () => {
@@ -211,13 +211,13 @@ describe('EditFileTool', () => {
 
     const result = await editFileTool.execute({
       file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 4,
-        end_position_current_content: 'line 4',
+      changes: [{
+        replace_start_line_number: 2,
+        replace_start_line_content: 'line 2',
+        replace_end_line_number: 4,
+        replace_end_line_content: 'line 4',
         new_content: 'new content'
-      }
+      }]
     });
 
     const parsedResult = JSON.parse(result);
@@ -234,18 +234,18 @@ describe('EditFileTool', () => {
       changes: [
         {
           // First change: modify lines 2-3
-          starting_position_line_number: 2,
-          starting_position_current_content: 'line 2',
-          end_position_line_number: 3,
-          end_position_current_content: 'line 3',
+          replace_start_line_number: 2,
+          replace_start_line_content: 'line 2',
+          replace_end_line_number: 3,
+          replace_end_line_content: 'line 3',
           new_content: 'modified line 2\nmodified line 3'
         },
         {
           // Second change: modify lines 5-6
-          starting_position_line_number: 5,
-          starting_position_current_content: 'line 5',
-          end_position_line_number: 6,
-          end_position_current_content: 'line 6',
+          replace_start_line_number: 5,
+          replace_start_line_content: 'line 5',
+          replace_end_line_number: 6,
+          replace_end_line_content: 'line 6',
           new_content: 'modified line 5\nmodified line 6'
         }
       ]
@@ -275,18 +275,18 @@ describe('EditFileTool', () => {
       changes: [
         {
           // First change in the array (but should be applied second)
-          starting_position_line_number: 1,
-          starting_position_current_content: 'line 1',
-          end_position_line_number: 2,
-          end_position_current_content: 'line 2',
+          replace_start_line_number: 1,
+          replace_start_line_content: 'line 1',
+          replace_end_line_number: 2,
+          replace_end_line_content: 'line 2',
           new_content: 'new line 1\nnew line 2'
         },
         {
           // Second change in the array (but should be applied first)
-          starting_position_line_number: 4,
-          starting_position_current_content: 'line 4',
-          end_position_line_number: 5,
-          end_position_current_content: 'line 5',
+          replace_start_line_number: 4,
+          replace_start_line_content: 'line 4',
+          replace_end_line_number: 5,
+          replace_end_line_content: 'line 5',
           new_content: 'new line 4\nnew line 5'
         }
       ]
@@ -307,13 +307,13 @@ describe('EditFileTool', () => {
     
     const result = await editFileTool.execute({
       file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 3,
-        starting_position_current_content: 'line 3',
-        end_position_line_number: 3,
-        end_position_current_content: 'line 3',
+      changes: [{
+        replace_start_line_number: 3,
+        replace_start_line_content: 'line 3',
+        replace_end_line_number: 3,
+        replace_end_line_content: 'line 3',
         new_content: 'replaced line 3'
-      }
+      }]
     });
 
     const parsedResult = JSON.parse(result);
@@ -333,13 +333,13 @@ describe('EditFileTool', () => {
     
     const result = await editFileTool.execute({
       file_path: 'test.txt',
-      changes: {
-        starting_position_line_number: 2,
-        starting_position_current_content: 'line 2',
-        end_position_line_number: 3,
-        end_position_current_content: 'line 3',
+      changes: [{
+        replace_start_line_number: 2,
+        replace_start_line_content: 'line 2',
+        replace_end_line_number: 3,
+        replace_end_line_content: 'line 3',
         new_content: newLines
-      }
+      }]
     });
 
     const parsedResult = JSON.parse(result);
@@ -363,26 +363,26 @@ describe('EditFileTool', () => {
       changes: [
         {
           // Replace a single line with multiple lines
-          starting_position_line_number: 2,
-          starting_position_current_content: 'line 2',
-          end_position_line_number: 2,
-          end_position_current_content: 'line 2',
+          replace_start_line_number: 2,
+          replace_start_line_content: 'line 2',
+          replace_end_line_number: 2,
+          replace_end_line_content: 'line 2',
           new_content: 'new line 2-1\nnew line 2-2\nnew line 2-3'
         },
         {
           // Replace multiple lines with a single line
-          starting_position_line_number: 5,
-          starting_position_current_content: 'line 5',
-          end_position_line_number: 7,
-          end_position_current_content: 'line 7',
+          replace_start_line_number: 5,
+          replace_start_line_content: 'line 5',
+          replace_end_line_number: 7,
+          replace_end_line_content: 'line 7',
           new_content: 'new combined line 5-7'
         },
         {
           // Replace the last line
-          starting_position_line_number: 10,
-          starting_position_current_content: 'line 10',
-          end_position_line_number: 10,
-          end_position_current_content: 'line 10',
+          replace_start_line_number: 10,
+          replace_start_line_content: 'line 10',
+          replace_end_line_number: 10,
+          replace_end_line_content: 'line 10',
           new_content: 'new line 10'
         }
       ]
@@ -411,28 +411,28 @@ describe('EditFileTool', () => {
         {
           // First change: Replace line 3 with 5 new lines
           // This will shift all subsequent line numbers by +4
-          starting_position_line_number: 3,
-          starting_position_current_content: 'line 3',
-          end_position_line_number: 3,
-          end_position_current_content: 'line 3',
+          replace_start_line_number: 3,
+          replace_start_line_content: 'line 3',
+          replace_end_line_number: 3,
+          replace_end_line_content: 'line 3',
           new_content: 'expanded line 3-1\nexpanded line 3-2\nexpanded line 3-3\nexpanded line 3-4\nexpanded line 3-5'
         },
         {
           // Second change: Replace line 6 with 3 new lines
           // If first change is applied first, this line would now be at position 10
-          starting_position_line_number: 6,
-          starting_position_current_content: 'line 6',
-          end_position_line_number: 6,
-          end_position_current_content: 'line 6',
+          replace_start_line_number: 6,
+          replace_start_line_content: 'line 6',
+          replace_end_line_number: 6,
+          replace_end_line_content: 'line 6',
           new_content: 'expanded line 6-1\nexpanded line 6-2\nexpanded line 6-3'
         },
         {
           // Third change: Replace line 9 with 2 new lines
           // If previous changes are applied first, this line would be shifted
-          starting_position_line_number: 9,
-          starting_position_current_content: 'line 9',
-          end_position_line_number: 9,
-          end_position_current_content: 'line 9',
+          replace_start_line_number: 9,
+          replace_start_line_content: 'line 9',
+          replace_end_line_number: 9,
+          replace_end_line_content: 'line 9',
           new_content: 'expanded line 9-1\nexpanded line 9-2'
         }
       ]

@@ -4,7 +4,7 @@ import { AppConfig } from '../config/config.js';
 
 // Import marked-terminal with any type
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-import TerminalRenderer from 'marked-terminal';
+import { markedTerminal } from 'marked-terminal';
 
 /**
  * Class for rendering markdown text in the terminal
@@ -25,23 +25,21 @@ export class MarkdownRenderer {
     this.markdownEnabled = config.output?.markdownRendering !== false;
 
     // Configure marked with the terminal renderer
-    marked.setOptions({
-      renderer: new TerminalRenderer({
-        // Custom code block handling to integrate with CodeRenderer
-        code: (code: string, language?: string) => {
-          return this.codeRenderer.render(code, language);
-        },
-        // Additional options can be configured here
-        tableOptions: {
-          chars: { 
-            'top': '─', 'top-mid': '┬', 'top-left': '┌', 'top-right': '┐',
-            'bottom': '─', 'bottom-mid': '┴', 'bottom-left': '└', 'bottom-right': '┘',
-            'left': '│', 'left-mid': '├', 'mid': '─', 'mid-mid': '┼',
-            'right': '│', 'right-mid': '┤', 'middle': '│'
-          }
+    marked.use(markedTerminal({
+      // Custom code block handling to integrate with CodeRenderer
+      code: (code: string, language?: string) => {
+        return this.codeRenderer.render(code, language);
+      },
+      // Additional options can be configured here
+      tableOptions: {
+        chars: {
+          'top': '─', 'top-mid': '┬', 'top-left': '┌', 'top-right': '┐',
+          'bottom': '─', 'bottom-mid': '┴', 'bottom-left': '└', 'bottom-right': '┘',
+          'left': '│', 'left-mid': '├', 'mid': '─', 'mid-mid': '┼',
+          'right': '│', 'right-mid': '┤', 'middle': '│'
         }
-      })
-    });
+      }
+    }) as any)
   }
 
   /**

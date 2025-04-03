@@ -8,6 +8,8 @@ import {
   createCodeRenderer 
 } from '../helpers/llm-integration-test-helper.js';
 import { FileSourceLlmPreparation } from '../../src/llm/tools/file-source-llm-preparation.js';
+import { MarkdownRenderer } from '../../src/utils/markdown-renderer.js';
+import { AppConfig } from '../../src/config/config.js';
 
 describe('LLM Integration Test with Real LLM', () => {
   let fileSource: FileSourceLlmPreparation;
@@ -38,7 +40,7 @@ describe('LLM Integration Test with Real LLM', () => {
     const projectContext = createMockedProjectContext();
 
     // Create an instance of our custom task executor
-    const taskExecutor = new TaskExecutor(codeRenderer, projectContext);
+    const taskExecutor = new TaskExecutor(new MarkdownRenderer({} as AppConfig, codeRenderer), projectContext);
 
     // Define a simple task using the fixture
     const taskPrompt = taskExecutor.createTaskPrompt();
