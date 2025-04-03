@@ -15,7 +15,7 @@ const FileToReadSchema = z.object({
  */
 const SubtaskSchema = z.object({
   id: z.string().optional().describe('Unique identifier for the subtask'),
-  taskSpecification: z.string().describe('Detailed description of what the subtask should accomplish'),
+  taskSpecification: z.string().describe('Detailed content of <subtask_specification> of what the subtask should accomplish'),
   complexity: z.enum([ComplexityLevel.LOW, ComplexityLevel.MEDIUM, ComplexityLevel.HIGH])
     .default(ComplexityLevel.MEDIUM)
     .describe('The estimated complexity level of the subtask'),

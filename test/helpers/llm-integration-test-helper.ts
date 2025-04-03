@@ -74,7 +74,7 @@ export async function createRealLLM(): Promise<BaseLLM> {
       local: {
         enabled: true,
         provider: 'ollama',
-        model: 'mistral-small',
+        model: 'qwen2.5:32b',
         baseUrl: 'http://localhost:11434/api'
       },
       remote: {
@@ -87,7 +87,7 @@ export async function createRealLLM(): Promise<BaseLLM> {
         'ollama': {
           enabled: true,
           provider: 'ollama',
-          model: 'mistral-small',
+          model: 'qwen2.5:32b',
           baseUrl: 'http://localhost:11434/api'
         },
         'openai': {
