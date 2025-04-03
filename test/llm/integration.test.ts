@@ -24,7 +24,7 @@ describe('LLM Integration Test with Real LLM', () => {
   });
 
   it('should work with a real LLM and mocked tools', async function() {
-    this.timeout(30000);
+    this.timeout(60000);
 
     const projectDir = process.cwd();
 

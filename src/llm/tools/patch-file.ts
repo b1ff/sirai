@@ -8,9 +8,9 @@ import { FileSourceLlmPreparation } from './file-source-llm-preparation.js';
  * Schema for a single patch operation.
  */
 const patchSchema = z.object({
-  old_content: z.string()
+  find: z.string()
     .describe('The current content to be replaced.'),
-  new_content: z.string()
+  replace: z.string()
     .describe('The new content to replace the old content with.'),
 });
 
@@ -127,8 +127,8 @@ export class PatchFileTool extends BaseTool {
     const sortedChanges = [...changesArray];
 
     const appliedChangesInfo: { 
-      old_content: string;
-      new_content: string 
+      find: string;
+      replace: string 
     }[] = [];
 
     let diff = `File: ${file}
@@ -140,14 +140,14 @@ export class PatchFileTool extends BaseTool {
     // Apply each change
     for (let i = 0; i < sortedChanges.length; i++) {
       const change = sortedChanges[i];
-      const { old_content, new_content } = change;
+      const { find, replace } = change;
 
-      // Check if old_content exists in the current content
-      if (!currentContent.includes(old_content)) {
+      // Check if find exists in the current content
+      if (!currentContent.includes(find)) {
         return JSON.stringify({
           status: 'error',
           message: `Change #${i + 1} failed: Could not find the specified content in the file.`,
-          expected: old_content
+          expected: find
         });
       }
 
@@ -155,19 +155,19 @@ export class PatchFileTool extends BaseTool {
       diff += `--- Change #${i + 1} ---
 `;
       diff += `Replacing:
-"${old_content}"
+"${find}"
 `;
       diff += `With:
-"${new_content}"
+"${replace}"
 
 `;
 
       // Apply the change
-      currentContent = currentContent.replace(old_content, new_content);
+      currentContent = currentContent.replace(find, replace);
 
       appliedChangesInfo.push({
-        old_content,
-        new_content
+        find,
+        replace
       });
     }
 

@@ -69,8 +69,8 @@ describe('PatchFileTool', () => {
     const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: [{
-        old_content: 'line 2\nline 3\nline 4',
-        new_content: 'new line 2\nnew line 3\nnew line 4'
+        find: 'line 2\nline 3\nline 4',
+        replace: 'new line 2\nnew line 3\nnew line 4'
       }]
     });
 
@@ -87,8 +87,8 @@ describe('PatchFileTool', () => {
     const result = await patchFileTool.execute({
       file_path: '../outside.txt',
       changes: [{
-        old_content: 'line 2\nline 3\nline 4',
-        new_content: 'new content'
+        find: 'line 2\nline 3\nline 4',
+        replace: 'new content'
       }]
     });
 
@@ -103,8 +103,8 @@ describe('PatchFileTool', () => {
     const result = await patchFileTool.execute({
       file_path: 'nonexistent.txt',
       changes: [{
-        old_content: 'line 2\nline 3\nline 4',
-        new_content: 'new content'
+        find: 'line 2\nline 3\nline 4',
+        replace: 'new content'
       }]
     });
 
@@ -117,8 +117,8 @@ describe('PatchFileTool', () => {
     const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: [{
-        old_content: 'content that does not exist',
-        new_content: 'new content'
+        find: 'content that does not exist',
+        replace: 'new content'
       }]
     });
 
@@ -133,8 +133,8 @@ describe('PatchFileTool', () => {
     const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: [{
-        old_content: 'line 2\nline 3\nline 4',
-        new_content: 'new content'
+        find: 'line 2\nline 3\nline 4',
+        replace: 'new content'
       }]
     });
 
@@ -152,13 +152,13 @@ describe('PatchFileTool', () => {
       changes: [
         {
           // First change: modify lines 2-3
-          old_content: 'line 2\nline 3',
-          new_content: 'modified line 2\nmodified line 3'
+          find: 'line 2\nline 3',
+          replace: 'modified line 2\nmodified line 3'
         },
         {
           // Second change: modify lines 5-6
-          old_content: 'line 5\nline 6',
-          new_content: 'modified line 5\nmodified line 6'
+          find: 'line 5\nline 6',
+          replace: 'modified line 5\nmodified line 6'
         }
       ]
     });
@@ -186,13 +186,13 @@ describe('PatchFileTool', () => {
       changes: [
         {
           // First change in the array
-          old_content: 'line 1\nline 2',
-          new_content: 'new line 1\nnew line 2'
+          find: 'line 1\nline 2',
+          replace: 'new line 1\nnew line 2'
         },
         {
           // Second change in the array
-          old_content: 'line 4\nline 5',
-          new_content: 'new line 4\nnew line 5'
+          find: 'line 4\nline 5',
+          replace: 'new line 4\nnew line 5'
         }
       ]
     });
@@ -212,8 +212,8 @@ describe('PatchFileTool', () => {
     const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: [{
-        old_content: 'line 3',
-        new_content: 'replaced line 3'
+        find: 'line 3',
+        replace: 'replaced line 3'
       }]
     });
 
@@ -235,8 +235,8 @@ describe('PatchFileTool', () => {
     const result = await patchFileTool.execute({
       file_path: 'test.txt',
       changes: [{
-        old_content: 'line 2\nline 3',
-        new_content: newLines
+        find: 'line 2\nline 3',
+        replace: newLines
       }]
     });
 
@@ -261,18 +261,18 @@ describe('PatchFileTool', () => {
       changes: [
         {
           // Replace a single line with multiple lines
-          old_content: 'line 2',
-          new_content: 'new line 2-1\nnew line 2-2\nnew line 2-3'
+          find: 'line 2',
+          replace: 'new line 2-1\nnew line 2-2\nnew line 2-3'
         },
         {
           // Replace multiple lines with a single line
-          old_content: 'line 5\nline 6\nline 7',
-          new_content: 'new combined line 5-7'
+          find: 'line 5\nline 6\nline 7',
+          replace: 'new combined line 5-7'
         },
         {
           // Replace the last line
-          old_content: 'line 10',
-          new_content: 'new line 10'
+          find: 'line 10',
+          replace: 'new line 10'
         }
       ]
     });
@@ -299,18 +299,18 @@ describe('PatchFileTool', () => {
       changes: [
         {
           // First change: Replace line 3 with 5 new lines
-          old_content: 'line 3',
-          new_content: 'expanded line 3-1\nexpanded line 3-2\nexpanded line 3-3\nexpanded line 3-4\nexpanded line 3-5'
+          find: 'line 3',
+          replace: 'expanded line 3-1\nexpanded line 3-2\nexpanded line 3-3\nexpanded line 3-4\nexpanded line 3-5'
         },
         {
           // Second change: Replace line 6 with 3 new lines
-          old_content: 'line 6',
-          new_content: 'expanded line 6-1\nexpanded line 6-2\nexpanded line 6-3'
+          find: 'line 6',
+          replace: 'expanded line 6-1\nexpanded line 6-2\nexpanded line 6-3'
         },
         {
           // Third change: Replace line 9 with 2 new lines
-          old_content: 'line 9',
-          new_content: 'expanded line 9-1\nexpanded line 9-2'
+          find: 'line 9',
+          replace: 'expanded line 9-1\nexpanded line 9-2'
         }
       ]
     });

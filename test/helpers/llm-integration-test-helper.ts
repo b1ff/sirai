@@ -3,14 +3,14 @@ import { BaseLLM } from '../../src/llm/base.js';
 import { AppConfig } from '../../src/config/config.js';
 import { CodeRenderer } from '../../src/utils/code-renderer.js';
 import { ProjectContext } from '../../src/utils/project-context.js';
-import { EditFileTool, WriteFileTool } from '../../src/llm/tools/index.js';
+import { EditFileTool, PatchFileTool, WriteFileTool } from '../../src/llm/tools/index.js';
 import { LLMFactory } from '../../src/llm/factory.js';
 
 /**
  * Creates a mocked EditFileTool that doesn't perform actual file operations
  */
 export function createMockedEditFileTool(projectDir: string): { 
-  tool: EditFileTool; 
+  tool: PatchFileTool;
   spy: sinon.SinonSpy;
   mockFs: {
     stat: sinon.SinonStub;
@@ -29,7 +29,8 @@ export function createMockedEditFileTool(projectDir: string): {
   const approvalMock = async (): Promise<boolean> => true;
 
   // Create the tool with mocked fs
-  const tool = new EditFileTool(projectDir, approvalMock, mockFs);
+  // const tool = new EditFileTool(projectDir, approvalMock, mockFs);
+  const tool = new PatchFileTool(projectDir, approvalMock, mockFs);
 
   // Spy on the execute method
   const spy = sinon.spy(tool, 'execute');
@@ -74,7 +75,7 @@ export async function createRealLLM(): Promise<BaseLLM> {
       local: {
         enabled: true,
         provider: 'ollama',
-        model: 'qwen2.5:32b',
+        model: 'mistral-small',
         baseUrl: 'http://localhost:11434/api'
       },
       remote: {

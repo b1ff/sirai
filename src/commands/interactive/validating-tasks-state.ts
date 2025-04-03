@@ -1,11 +1,10 @@
 import { State } from './state.js';
 import { StateContext } from './state-context.js';
 import { StateType } from './state-types.js';
-import { RunProcessTool } from '../../llm/tools/index.js';
+import { RunProcessTool, StoreValidationResultTool } from '../../llm/tools/index.js';
 import inquirer from 'inquirer';
-import { ValidationStatus, ValidationResult } from '../../task-planning/schemas.js';
+import { ValidationStatus } from '../../task-planning/schemas.js';
 import chalk from 'chalk';
-import { z } from 'zod';
 
 /**
  * State for validating executed tasks
@@ -29,20 +28,16 @@ export class ValidatingTasksState implements State {
 
             console.log(chalk.cyan('Validating task execution...'));
 
-            // Use structured output for validation to get reliable results
-            const validationResult = await llm.withStructuredOutput<ValidationResult>(
-                z.object({
-                    status: z.enum([ValidationStatus.PASSED, ValidationStatus.FAILED]),
-                    message: z.string(),
-                    failedTasks: z.array(z.string()).optional(),
-                    suggestedFixes: z.string().optional()
-                })
-            ).invoke(
+            // Create validation result tool to store the validation result
+            const storeValidationResultTool = new StoreValidationResultTool();
+            
+            // Invoke LLM with the validation tool
+            await llm.generate(undefined,
                 `Validate the execution of the following task plan using these validation instructions:
                 
                 ${taskPlan.validationInstructions}
                 
-                Return a structured response with:
+                Use the storeValidationResult tool to provide your validation with:
                 1. status: "passed" if validation passed, "failed" if it failed
                 2. message: A detailed explanation of the validation results
                 3. failedTasks: If failed, list the specific tasks that failed
@@ -50,23 +45,33 @@ export class ValidatingTasksState implements State {
                 
                 Be thorough in your validation and provide actionable feedback.`,
                 {
-                    tools: [new RunProcessTool({
-                        trustedCommands: []
-                    }, async command => {
-                        const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
-                            {
-                                type: 'list',
-                                name: 'confirmation',
-                                message: `Do you allow to run "${command}"?`,
-                                choices: ['Yes', 'No'],
-                                default: 'Yes'
-                            }
-                        ]);
+                    tools: [
+                        storeValidationResultTool,
+                        new RunProcessTool({
+                            trustedCommands: []
+                        }, async command => {
+                            const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
+                                {
+                                    type: 'list',
+                                    name: 'confirmation',
+                                    message: `Do you allow to run "${command}"?`,
+                                    choices: ['Yes', 'No'],
+                                    default: 'Yes'
+                                }
+                            ]);
 
-                        return confirmation === 'Yes';
-                    })]
+                            return confirmation === 'Yes';
+                        })
+                    ]
                 }
             );
+            
+            // Get the validation result from the tool
+            const validationResult = storeValidationResultTool.getValidationResult();
+            
+            if (!validationResult) {
+                throw new Error('No validation result was provided by the LLM');
+            }
 
             // Store validation result in the task plan
             taskPlan.validationResult = validationResult;
