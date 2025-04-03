@@ -53,15 +53,16 @@ export async function executePromptFromFile(
 
   // Try to get the LLM
   let llm: BaseLLM;
+  const spinner = ora('Initializing LLM...').start();
+
   try {
-    const spinner = ora('Initializing LLM...').start();
     llm = await LLMFactory.getBestLLM(config, llmOptions);
     spinner.succeed(`Using ${llm.constructor.name}`);
   } catch (error) {
     if (error instanceof Error) {
-      console.error(chalk.red(`Error initializing LLM: ${error.message}`));
+      spinner.fail(`Error initializing LLM: ${error.message}`);
     } else {
-      console.error(chalk.red('Error initializing LLM: Unknown error'));
+      spinner.fail('Error initializing LLM: Unknown error');
     }
     return;
   }
@@ -115,10 +116,6 @@ export async function executePromptFromFile(
   try {
     console.log(chalk.blue('\nGenerating response...'));
 
-    const spinner = ora('Thinking...').start();
-
-    // Start streaming response
-    spinner.stop();
 
     let response = '';
     await llm.generateStream(undefined, fullPrompt,  (chunk) => {

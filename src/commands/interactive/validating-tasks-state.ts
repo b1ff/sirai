@@ -1,7 +1,7 @@
 import { State } from './state.js';
 import { StateContext } from './state-context.js';
 import { StateType } from './state-types.js';
-import { RunProcessTool, StoreValidationResultTool } from '../../llm/tools/index.js';
+import { ReadFileTool, RunProcessTool, StoreValidationResultTool } from '../../llm/tools/index.js';
 import inquirer from 'inquirer';
 import { ValidationStatus } from '../../task-planning/schemas.js';
 import chalk from 'chalk';
@@ -30,7 +30,7 @@ export class ValidatingTasksState implements State {
 
             // Create validation result tool to store the validation result
             const storeValidationResultTool = new StoreValidationResultTool();
-            
+            const projectRoot = contextData.getProjectContext('projectRoot');
             // Invoke LLM with the validation tool
             await llm.generate(undefined,
                 `Validate the execution of the following task plan using these validation instructions:
@@ -47,6 +47,7 @@ export class ValidatingTasksState implements State {
                 {
                     tools: [
                         storeValidationResultTool,
+                        new ReadFileTool(projectRoot),
                         new RunProcessTool({
                             trustedCommands: []
                         }, async command => {

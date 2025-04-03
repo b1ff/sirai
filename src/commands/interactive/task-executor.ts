@@ -4,7 +4,7 @@ import inquirer from 'inquirer';
 import { BaseLLM } from '../../llm/base.js';
 import { MarkdownRenderer } from '../../utils/markdown-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
-import { WriteFileTool, PatchFileTool, RunProcessTool } from '../../llm/tools/index.js';
+import { WriteFileTool, PatchFileTool } from '../../llm/tools/index.js';
 import { Subtask, TaskPlan } from '../../task-planning/schemas.js';
 import { TaskStatus } from '../interactive/task-types.js';
 import { TaskHistoryManager } from '../../utils/task-history-manager.js';
@@ -36,16 +36,26 @@ export class TaskExecutor {
   public createTaskPrompt(): string {
     const projectDir = process.cwd();
 
+    const projectContextString = this.projectContext.createContextString(); // Get context string including project guidelines
+
     return `
 You are a precise task executor working in the automation. 
 Your job is to implement exactly what has been planned in the task specification, without deviation or creative additions unless explicitly required.
 
 Current working directory: '${projectDir}'
 
+${projectContextString}
+
+${projectContextString}
+
+${projectContextString}
+
 ## EXECUTION INSTRUCTIONS
 1. READ the task specification completely before beginning implementation
 2. ADHERE strictly to any file paths, module names, and interface definitions provided
 3. IMPLEMENT code consistent with the existing project patterns and styles using provided tools
+
+${projectContextString} // Include project context/guidelines
 
 ## IMPLEMENTATION GUIDELINES
 - USE the provided file system tools to write, or modify files. Prefer batch modifications within one tool call when possible
@@ -57,14 +67,15 @@ Current working directory: '${projectDir}'
   }
 
   public async executeTask(prompt: string, userInput: string, llm: BaseLLM): Promise<boolean> {
+    console.log(chalk.blue('\nExecuting task...'));
+
+    // Display provider and model information
+    console.log(chalk.cyan(`Using ${llm.getProviderWithModel()}`));
+
+    // Create a spinner
+    const spinner = ora('Thinking...').start();
     try {
-      console.log(chalk.blue('\nExecuting task...'));
 
-      // Display provider and model information
-      console.log(chalk.cyan(`Using ${llm.getProviderWithModel()}`));
-
-      // Create a spinner
-      const spinner = ora('Thinking...').start();
 
       // Get project directory
       const projectDir = this.projectContext.getProjectContext().projectRoot;
@@ -99,6 +110,7 @@ Current working directory: '${projectDir}'
       process.stdout.write(this.markdownRenderer.render(response));
       return true;
     } catch (error) {
+        spinner.stop();
       console.error(chalk.red(`Error executing task: ${error instanceof Error ? error.message : 'Unknown error'}`));
       return false;
     }
@@ -205,51 +217,5 @@ The files have been created/modified as requested.`;
     console.log('\n');
 
     return true;
-  }
-
-  public async validateTaskExecution(validationInstructions: string, executedTaskPlan: string, llm: BaseLLM): Promise<{ passed: boolean, feedback: string }> {
-    try {
-      console.log(chalk.blue('\nValidating task execution...'));
-
-      // Display provider and model information
-      console.log(chalk.cyan(`Using ${llm.getProviderWithModel()} for validation`));
-
-      // Create a spinner
-      const spinner = ora('Validating...').start();
-
-      // Execute the validation with function calling enabled
-      const response = await llm.generate(undefined, `${validationInstructions}\n<executed_task_plan>${executedTaskPlan}</executed_task_plan>`, {
-        // Enable function calling
-        tools: [
-          new RunProcessTool({ trustedCommands: [] }, async (command: string) => {
-            spinner.stop();
-            const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
-              {
-                type: 'list',
-                name: 'confirmation',
-                message: `Do you approve running the command: ${command}?`,
-                choices: ['Yes', 'No'],
-                default: 'Yes'
-              }
-            ]);
-
-            spinner.start("Validating...");
-            return confirmation === 'Yes';
-          })
-        ],
-      });
-
-      spinner.stop();
-      console.log(chalk.green('\nValidation completed'));
-
-      // Parse the response to determine if validation passed or failed
-      const validationPassed = response.includes('Validation Passed');
-      const feedback = this.markdownRenderer.render(response);
-
-      return { passed: validationPassed, feedback };
-    } catch (error) {
-      console.error(chalk.red(`Error during validation: ${error instanceof Error ? error.message : 'Unknown error'}`));
-      return { passed: false, feedback: 'Validation failed due to an error.' };
-    }
   }
 }

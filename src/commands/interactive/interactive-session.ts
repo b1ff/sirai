@@ -69,8 +69,9 @@ export class InteractiveSession {
   }
 
   private async initializeLLM(): Promise<void> {
+    const spinner = ora('Initializing LLM...').start();
+
     try {
-      const spinner = ora('Initializing LLM...').start();
       const contextData = this.stateContext.getContextData();
 
       // Get LLM options
@@ -84,7 +85,8 @@ export class InteractiveSession {
       contextData.setLLM(llm);
       spinner.succeed(`Using ${llm.provider}`);
     } catch (error) {
-      console.error(chalk.red('Error initializing LLM'), error);
+      spinner.fail('Error initializing LLM');
+      console.error(error);
     }
   }
 }
