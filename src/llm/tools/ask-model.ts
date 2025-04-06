@@ -18,18 +18,14 @@ export class AskModelTool extends BaseTool {
    */
   name = 'ask_model';
 
-  /**
-   * The description of the tool
-   */
-  description = 'Ask a local or cheaper LLM model about files. Provide an array of file paths and a query with questions or tasks. The model will read the files if needed and respond to the query. Attempt to create bigger tasks for analysis, as model can read other files as well if needed.';
+  description = 'Ask a local or cheaper LLM model about files. Provide an array of file paths and a query with questions or tasks. The model will read the files if needed and respond to the query. Attempt to create bigger tasks for analysis, as model can read other files (i.e. dependencies) as well.';
 
-  /**
-   * The parameters of the tool
-   */
   parameters = z.object({
     paths: z.array(z.string()).describe('An array of file paths to analyze.'),
 
-    query: z.string().describe('The list of queries or task for the model to respond to. Prefer asking multiple questions or giving multiple tasks in one query.'),
+    query: z.array(z.string())
+            .describe('A query or an array of queries for the model to respond to. ' +
+                'Provide multiple questions or tasks either as a single string or as separate items in an array.'),
   });
 
   /**
@@ -119,25 +115,55 @@ export class AskModelTool extends BaseTool {
       const filePreparation = new this.fileSourceLlmPreparationClass(filesToRead, this.workingDir);
       const fileContent = await filePreparation.renderForLlm(false); // false to exclude line numbers
 
-      // Construct the prompt for the model
-      const prompt = `
+      // Convert query to array if it's a string
+      const queries = Array.isArray(query) ? query : [query];
+      
+      // Process each query individually and collect results
+      const results: { query: string; response: string }[] = [];
+      
+      for (let i = 0; i < queries.length; i++) {
+        const currentQuery = queries[i];
+        try {
+          // Construct the prompt for the model
+          const prompt = `
 You are a helpful assistant that analyzes files and responds to queries about them.
 
 FILES:
 ${fileContent}
 
 QUERY:
-${query}
+${currentQuery}
 
 Please provide a concise and accurate response to the query based on the file content.
 If query involves digging further, read needed files on your own to get the precise answer.
 `;
 
-      // Generate response using the LLM
-      const response = await llm.generate(prompt, query, {
-        tools: [new ReadFileTool(this.workingDir)]
-      });
-      return response;
+          // Generate response using the LLM
+          const response = await llm.generate(prompt, currentQuery, {
+            tools: [new ReadFileTool(this.workingDir)]
+          });
+          
+          results.push({ query: currentQuery, response });
+        } catch (error) {
+          // Handle error for individual query without failing the entire operation
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          results.push({ 
+            query: currentQuery, 
+            response: `Error processing this query: ${errorMessage}` 
+          });
+        }
+      }
+      
+      // Format the aggregated results
+      if (results.length === 1) {
+        // If there was only one query, return just the response
+        return results[0].response;
+      } else {
+        // For multiple queries, format with clear separation
+        return results.map((result, index) => {
+          return `Query ${index + 1}: ${result.query}\n\nResponse ${index + 1}:\n${result.response}`;
+        }).join('\n\n---\n\n');
+      }
     } catch (error) {
       // Use the common error handling method from the base class
       return this.handleToolError(error);

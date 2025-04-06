@@ -153,10 +153,8 @@ export const DEFAULT_PRICING_CONFIG: PricingConfig = {
     'gpt-3.5-turbo': 0.0015,
     'gpt-3.5-turbo-16k': 0.003,
     // Anthropic models
-    'claude-3-opus': 0.015,
-    'claude-3-sonnet': 0.003,
-    'claude-3-haiku': 0.00025,
-    'claude-2': 0.008,
+    'claude-3-7-sonnet-latest': 10 / 1000,
+    'claude-3-5-sonnet-latest': 10 / 1000,
     // Google models
     'gemini-pro': 0.0025,
     'gemini-ultra': 0.01
