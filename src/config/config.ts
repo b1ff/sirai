@@ -77,6 +77,8 @@ export interface PricingConfig {
 /**
  * Interface for task planning configuration
  */
+export type TaskType = 'planning' | 'execution' | 'validation' | string;
+
 export interface TaskPlanningConfig {
   enabled: boolean;
   preferredProvider?: string; // For backward compatibility

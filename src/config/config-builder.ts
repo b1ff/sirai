@@ -7,6 +7,7 @@ import {
   AppConfig,
   LLMProviderConfig,
   ValidationConfig,
+  TaskType,
 } from './config.js';
 
 /**
@@ -112,7 +113,11 @@ export class ConfigBuilder {
             provider: 'anthropic',
             model: 'claude-3-7-sonnet-latest'
           },
-          'coding': {
+          'execution': {
+            provider: 'anthropic',
+            model: 'claude-3-7-sonnet-latest'
+          },
+          'validation': {
             provider: 'anthropic',
             model: 'claude-3-7-sonnet-latest'
           },
@@ -272,9 +277,11 @@ export class ConfigBuilder {
    * @returns The updated configuration
    */
   public updateConfig(key: string, value: any): AppConfig {
+    // Create a deep copy of the current config to avoid direct mutation
+    const configCopy = JSON.parse(JSON.stringify(this.config)) as AppConfig;
     // Handle dot notation (e.g., "llm.local.model")
     const keys = key.split('.');
-    let current: any = this.config;
+    let current: any = configCopy;
 
     for (let i = 0; i < keys.length - 1; i++) {
       if (!current[keys[i]]) {
@@ -287,7 +294,8 @@ export class ConfigBuilder {
     current[keys[keys.length - 1]] = value;
 
     // Save the updated config
-    this.saveConfig(this.config);
+    this.saveConfig(configCopy);
+    this.config = configCopy;
 
     return this.config;
   }
@@ -346,9 +354,11 @@ export class ConfigBuilder {
    * @param taskType - The type of task
    * @returns The provider and model to use for the task
    */
-  public getTaskProviderConfig(taskType: string): { provider: string; model?: string } | undefined {
-    if (this.config.taskPlanning?.providerConfig && this.config.taskPlanning.providerConfig[taskType]) {
-      return this.config.taskPlanning.providerConfig[taskType];
+  public getTaskProviderConfig(taskType: TaskType | string): { provider: string; model?: string } | undefined {
+    if (this.config.taskPlanning?.providerConfig && taskType in this.config.taskPlanning.providerConfig) {
+      // Safe to use indexed access with type assertion since we've checked the key exists
+      return this.config.taskPlanning.providerConfig[taskType as TaskType];
+
     }
 
     if (this.config.taskPlanning?.providerConfig?.default) {

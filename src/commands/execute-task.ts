@@ -28,11 +28,6 @@ interface CommandOptions {
   [key: string]: any;
 }
 
-/**
- * Executes a task directly without going through the interactive session
- * @param options - Command options
- * @param config - The configuration
- */
 export async function executeTaskDirectly(options: CommandOptions, config: AppConfig): Promise<void> {
   console.log(chalk.cyan('Executing task directly...'));
 

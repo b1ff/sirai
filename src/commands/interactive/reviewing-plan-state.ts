@@ -7,9 +7,6 @@ import { State } from './state.js';
 import { StateContext } from './state-context.js';
 import { StateType } from './state-types.js';
 
-/**
- * State for reviewing a plan
- */
 export class ReviewingPlanState implements State {
   public async process(context: StateContext): Promise<StateType> {
     const contextData = context.getContextData();

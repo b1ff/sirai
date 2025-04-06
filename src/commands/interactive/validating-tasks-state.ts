@@ -7,14 +7,15 @@ import { ValidationStatus } from '../../task-planning/schemas.js';
 import chalk from 'chalk';
 import { BaseLLM } from '../../llm/base.js';
 import { ContextData } from './context-data.js';
+import { LLMFactory } from '../../llm/factory.js';
 
 export class ValidatingTasksState implements State {
     public async process(context: StateContext): Promise<StateType> {
         const contextData = context.getContextData();
         const taskPlan = contextData.getCurrentPlan();
-        const llm = contextData.getLLM();
+        const defaultLLM = contextData.getLLM();
 
-        if (!this.validatePreconditions(taskPlan, llm)) {
+        if (!this.validatePreconditions(taskPlan, defaultLLM)) {
             return StateType.GENERATING_PLAN;
         }
 
@@ -25,8 +26,18 @@ export class ValidatingTasksState implements State {
             const validationCommandOutputs = await this.runAutoValidationCommands(validationConfig);
             const storeValidationResultTool = new StoreValidationResultTool();
 
-            await this.invokeValidationLLM(llm, taskPlan, validationCommandOutputs, storeValidationResultTool, contextData);
-            this.printUsedTokens(llm);
+            // Try to get a validation-specific LLM, fall back to default if not available
+            let validationLLM: BaseLLM | null = null;
+            try {
+                validationLLM = await LLMFactory.getBestLLM(contextData.getConfig(), { taskType: 'validation' });
+                console.log(chalk.cyan('Using validation-specific LLM model'));
+            } catch (error) {
+                console.log(chalk.yellow('Validation-specific LLM not available, using default LLM'));
+                validationLLM = defaultLLM;
+            }
+
+            await this.invokeValidationLLM(validationLLM, taskPlan, validationCommandOutputs, storeValidationResultTool, contextData);
+            this.printUsedTokens(validationLLM);
 
             const validationResult = storeValidationResultTool.getValidationResult();
             if (!validationResult) {
@@ -34,6 +45,15 @@ export class ValidatingTasksState implements State {
             }
 
             taskPlan.validationResult = validationResult;
+
+            // Clean up validation LLM if it's different from the default LLM
+            if (validationLLM !== defaultLLM) {
+                try {
+                    await validationLLM.dispose();
+                } catch (error) {
+                    console.warn(chalk.yellow('Error disposing validation LLM:', error instanceof Error ? error.message : 'Unknown error'));
+                }
+            }
 
             return this.handleValidationResult(validationResult, taskPlan, contextData);
         } catch (error) {

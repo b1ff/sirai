@@ -9,7 +9,8 @@ import { TaskStatus } from '../commands/interactive/task-types.js';
 export enum TaskType {
   GENERATION = 'generation',
   REFACTORING = 'refactoring',
-  EXPLANATION = 'explanation'
+  EXPLANATION = 'explanation',
+  VALIDATION = 'validation'
 }
 
 /**

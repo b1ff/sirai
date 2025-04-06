@@ -38,6 +38,7 @@ export interface LLMSelectionOptions {
   preferredProvider?: string;
   providerName?: string;
   taskType?: string;
+  validationType?: string;
 }
 
 /**
@@ -157,13 +158,43 @@ export class LLMFactory {
    * @returns The best available LLM
    */
   static async getBestLLM(config: AppConfig, options: LLMSelectionOptions = {}): Promise<BaseLLM> {
-    const { preferredProvider, providerName, taskType } = options;
+    const { preferredProvider, providerName, taskType, validationType } = options;
 
     // If a specific provider is requested, use it
     if (providerName) {
       return this.createLLMByProvider(config, providerName);
     }
 
+    // If this is a validation task, check for validation-specific model configuration
+    if (taskType === 'validation' && validationType && config.taskPlanning?.providerConfig?.validation) {
+      // First try to find a specific configuration for this validation type
+      const validationTypeKey = `validation.${validationType}`;
+      if (config.taskPlanning.providerConfig[validationTypeKey]) {
+        try {
+          const validationConfig = config.taskPlanning.providerConfig[validationTypeKey];
+          const llm = this.createLLMByProvider(config, validationConfig.provider, validationConfig.model);
+          if (await llm.isAvailable()) {
+            return llm;
+          }
+        } catch (error) {
+          console.warn(`Validation-specific provider for ${validationType} is not available: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          // Continue to try the general validation provider
+        }
+      }
+      
+      // Try the general validation provider if specific one isn't available
+      try {
+        const validationConfig = config.taskPlanning.providerConfig.validation;
+        const llm = this.createLLMByProvider(config, validationConfig.provider, validationConfig.model);
+        if (await llm.isAvailable()) {
+          return llm;
+        }
+      } catch (error) {
+        console.warn(`General validation provider is not available: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        // Continue to other fallback options
+      }
+    }
+    
     // If a task type is specified, check if there's a specific provider for it in taskPlanning.providerConfig
     if (taskType && config.taskPlanning?.providerConfig?.[taskType]) {
       const taskConfig = config.taskPlanning.providerConfig[taskType];

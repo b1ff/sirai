@@ -173,4 +173,13 @@ export abstract class BaseLLM {
   public getCostInUSD(): number {
     return this.calculateCost();
   }
+
+  /**
+   * Disposes of any resources used by the LLM
+   * This method should be called when the LLM is no longer needed
+   */
+  public async dispose(): Promise<void> {
+    // Base implementation does nothing
+    // Subclasses should override this method if they need to clean up resources
+  }
 }
