@@ -4,6 +4,7 @@ import path from 'path';
 import { ConfigBuilder } from '../../src/config/config-builder.js';
 import { AppConfig } from '../../src/config/config.js';
 import { LLMType } from '../../src/task-planning/schemas.js';
+import { ValidationConfig } from '../../src/config/config.js';
 
 describe('ConfigBuilder', () => {
   let configBuilder: ConfigBuilder;
@@ -48,6 +49,10 @@ describe('ConfigBuilder', () => {
     chat: {
       maxHistoryMessages: 20,
       saveHistory: true,
+    },
+    validation: {
+      enabled: true,
+      commands: ['npm test', 'npm run lint']
     },
     taskPlanning: {
       enabled: true,
@@ -267,6 +272,90 @@ describe('ConfigBuilder', () => {
       const nonExistentProvider = 'nonexistent-provider-' + Date.now();
       const providerConfig = configBuilder.getProviderConfig(nonExistentProvider);
       expect(providerConfig).to.be.undefined;
+    });
+  });
+
+  describe('Validation Configuration', () => {
+    it('should have default validation configuration', () => {
+      // Get the current config
+      const config = configBuilder.getConfig();
+      
+      // Verify default validation configuration exists
+      expect(config.validation).to.exist;
+      expect(config.validation.enabled).to.be.a('boolean');
+      expect(config.validation.commands).to.be.an('array');
+    });
+
+    it('should update validation enabled setting', () => {
+      // Get the current config
+      const originalConfig = configBuilder.getConfig();
+      const originalEnabled = originalConfig.validation?.enabled;
+
+      // Update the validation enabled setting
+      const updatedConfig = configBuilder.setValidationEnabled(!originalEnabled);
+
+      // Verify the update
+      expect(updatedConfig.getConfig().validation?.enabled).to.equal(!originalEnabled);
+
+      // Restore the original config
+      configBuilder.setValidationEnabled(originalEnabled);
+    });
+
+    it('should update validation commands', () => {
+      // Get the current config
+      const originalConfig = configBuilder.getConfig();
+      const originalCommands = originalConfig.validation?.commands || [];
+
+      // Create test commands
+      const testCommands = ['test-command-1', 'test-command-2'];
+
+      // Update the validation commands
+      const updatedConfig = configBuilder.setValidationCommands(testCommands);
+
+      // Verify the update
+      expect(updatedConfig.getConfig().validation?.commands).to.deep.equal(testCommands);
+
+      // Restore the original config
+      configBuilder.setValidationCommands(originalCommands);
+    });
+
+    it('should handle empty validation commands array', () => {
+      // Get the current config
+      const originalConfig = configBuilder.getConfig();
+      const originalCommands = originalConfig.validation?.commands || [];
+
+      // Update with empty commands array
+      const updatedConfig = configBuilder.setValidationCommands([]);
+
+      // Verify the update
+      expect(updatedConfig.getConfig().validation?.commands).to.be.an('array');
+      expect(updatedConfig.getConfig().validation?.commands).to.be.empty;
+
+      // Restore the original config
+      configBuilder.setValidationCommands(originalCommands);
+    });
+
+    it('should create validation config if it does not exist', () => {
+      // Get the current config
+      const originalConfig = configBuilder.getConfig();
+      
+      // Create a modified config without validation
+      const modifiedConfig = { ...originalConfig } as any;
+      delete modifiedConfig.validation;
+      
+      // Save the modified config
+      configBuilder.saveConfig(modifiedConfig);
+      
+      // Update validation enabled
+      const updatedConfig = configBuilder.setValidationEnabled(true).getConfig();
+      
+      // Verify the validation config was created
+      expect(updatedConfig.validation).to.exist;
+      expect(updatedConfig.validation.enabled).to.be.true;
+      expect(updatedConfig.validation.commands).to.be.an('array');
+      
+      // Restore the original config
+      configBuilder.saveConfig(originalConfig);
     });
   });
 

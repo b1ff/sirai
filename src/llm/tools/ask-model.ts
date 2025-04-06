@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z, ZodString } from 'zod';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 import { BaseTool } from './base.js';
@@ -119,32 +119,7 @@ export class AskModelTool extends BaseTool {
       const llm = await this.initializeLLM();
 
       // Create FileToRead objects for each path
-      const filesToRead = await Promise.all(paths.map(async (filePath) => {
-        try {
-          // Use FileSystemHelper to resolve and validate the path
-          const resolvedPath = this.fileSystemHelper.ensurePathInWorkingDir(filePath);
-
-          // Check if the file exists
-          try {
-            await fsPromises.access(resolvedPath);
-          } catch (error) {
-            throw new Error(`File ${filePath} does not exist`);
-          }
-
-          const extension = filePath.split('.').pop() || '';
-          const syntax = this.getFileSyntax(extension);
-
-          return {
-            path: resolvedPath,
-            syntax
-          };
-        } catch (error) {
-          if (error instanceof Error) {
-            throw error;
-          }
-          throw new Error(`Invalid file path: ${filePath}`);
-        }
-      }));
+      const filesToRead = await this.getFilesToRead(paths);
 
       // Use FileSourceLlmPreparation to format the files
       const filePreparation = new this.fileSourceLlmPreparationClass(filesToRead, this.workingDir);
@@ -173,6 +148,36 @@ If query involves digging further, read needed files on your own to get the prec
       // Use the common error handling method from the base class
       return this.handleToolError(error);
     }
+  }
+
+  private async getFilesToRead(paths: string[]) {
+    const filesToRead = await Promise.all(paths.map(async (filePath) => {
+      try {
+        // Use FileSystemHelper to resolve and validate the path
+        const resolvedPath = this.fileSystemHelper.ensurePathInWorkingDir(filePath);
+
+        // Check if the file exists
+        try {
+          await fsPromises.access(resolvedPath);
+        } catch (error) {
+          throw new Error(`File ${filePath} does not exist`);
+        }
+
+        const extension = filePath.split('.').pop() || '';
+        const syntax = this.getFileSyntax(extension);
+
+        return {
+          path: resolvedPath,
+          syntax
+        };
+      } catch (error) {
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error(`Invalid file path: ${filePath}`);
+      }
+    }));
+    return filesToRead;
   }
 
   /**

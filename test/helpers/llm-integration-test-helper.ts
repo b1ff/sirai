@@ -71,6 +71,10 @@ export function createMockedWriteFileTool(projectDir: string): {
  */
 export async function createRealLLM(): Promise<BaseLLM> {
   const config: AppConfig = {
+    validation: {
+      enabled: true,
+      commands: []
+    },
     llm: {
       providers: {
         'openai': {

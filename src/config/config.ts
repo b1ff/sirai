@@ -60,6 +60,14 @@ export interface ChatConfig {
 }
 
 /**
+ * Interface for validation configuration
+ */
+export interface ValidationConfig {
+  enabled: boolean;
+  commands: string[];
+}
+
+/**
  * Interface for task planning configuration
  */
 export interface TaskPlanningConfig {
@@ -106,6 +114,7 @@ export interface AppConfig {
   prompts: PromptsConfig;
   chat: ChatConfig;
   taskPlanning: TaskPlanningConfig;
+  validation: ValidationConfig;
   [key: string]: any;
 }
 

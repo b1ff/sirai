@@ -2,6 +2,7 @@ import { expect } from 'chai';
 import fs from 'fs-extra';
 import path from 'path';
 import { ConfigBuilder } from '../../src/config/config-builder.js';
+import { ValidationConfig } from '../../src/config/config.js';
 
 describe('ConfigBuilder API Tests', () => {
   describe('Singleton Pattern', () => {
@@ -91,6 +92,39 @@ describe('ConfigBuilder API Tests', () => {
       const taskConfig = configBuilder.getTaskProviderConfig('planning');
       // The result could be undefined if planning is not configured
       expect(taskConfig !== null).to.be.true;
+    });
+
+    it('should have a setValidationEnabled method', () => {
+      // Get the current config
+      const originalConfig = configBuilder.getConfig();
+      const originalEnabled = originalConfig.validation?.enabled;
+
+      // Call the method
+      const updatedConfig = configBuilder.setValidationEnabled(!originalEnabled).getConfig();
+      
+      // Verify the method works
+      expect(updatedConfig.validation?.enabled).to.equal(!originalEnabled);
+      
+      // Restore original value
+      configBuilder.setValidationEnabled(originalEnabled);
+    });
+
+    it('should have a setValidationCommands method', () => {
+      // Get the current config
+      const originalConfig = configBuilder.getConfig();
+      const originalCommands = originalConfig.validation?.commands || [];
+
+      // Test commands
+      const testCommands = ['test-api-command-1', 'test-api-command-2'];
+      
+      // Call the method
+      const updatedConfig = configBuilder.setValidationCommands(testCommands).getConfig();
+      
+      // Verify the method works
+      expect(updatedConfig.validation?.commands).to.deep.equal(testCommands);
+      
+      // Restore original value
+      configBuilder.setValidationCommands(originalCommands);
     });
 
     it('should have a getPromptsDir method that returns a string', () => {

@@ -31,11 +31,45 @@ export class ValidatingTasksState implements State {
             // Create validation result tool to store the validation result
             const storeValidationResultTool = new StoreValidationResultTool();
             const projectRoot = contextData.getProjectContext('projectRoot');
+            
+            // Check if auto-validation is enabled and commands are configured
+            const validationConfig = contextData.getConfig().validation || {};
+            const autoValidationEnabled = validationConfig.enabled === true;
+            const validationCommands = validationConfig.commands || [];
+            
+            // Collect validation command outputs
+            let validationCommandOutputs = '';
+            
+            if (autoValidationEnabled && validationCommands.length > 0) {
+                console.log(chalk.cyan('Running auto-validation commands...'));
+                
+                // Create RunProcessTool for executing validation commands
+                const runProcessTool = new RunProcessTool({
+                    trustedCommands: validationCommands
+                }, async () => true);
+                
+                // Execute each validation command and collect outputs
+                for (const command of validationCommands) {
+                    try {
+                        console.log(chalk.cyan(`Executing validation command: ${command}`));
+                        const output = await runProcessTool.execute({ command });
+                        validationCommandOutputs += `\n\nCommand: ${command}\nOutput:\n${output}`;
+                    } catch (error) {
+                        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                        console.error(chalk.yellow(`Warning: Validation command failed: ${errorMessage}`));
+                        validationCommandOutputs += `\n\nCommand: ${command}\nError: ${errorMessage}`;
+                    }
+                }
+                
+                console.log(chalk.green('Auto-validation commands completed'));
+            }
+            
             // Invoke LLM with the validation tool
             await llm.generate(undefined,
                 `Validate the execution of the following task plan using these validation instructions:
                 
                 ${taskPlan.validationInstructions}
+                ${validationCommandOutputs ? '\n\nValidation Command Results:' + validationCommandOutputs : ''}
                 
                 Use the storeValidationResult tool to provide your validation with:
                 1. status: "passed" if validation passed, "failed" if it failed
@@ -49,7 +83,7 @@ export class ValidatingTasksState implements State {
                         storeValidationResultTool,
                         new ReadFileTool(projectRoot),
                         new RunProcessTool({
-                            trustedCommands: []
+                            trustedCommands: validationConfig.commands || []
                         }, async command => {
                             const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
                                 {

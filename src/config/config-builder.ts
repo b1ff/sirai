@@ -6,6 +6,7 @@ import { LLMType } from '../task-planning/schemas.js';
 import {
   AppConfig,
   LLMProviderConfig,
+  ValidationConfig,
 } from './config.js';
 
 /**
@@ -144,6 +145,10 @@ export class ConfigBuilder {
             'simple': LLMType.LOCAL
           }
         }
+      },
+      validation: {
+        enabled: true,
+        commands: []
       },
     };
   }
@@ -334,6 +339,42 @@ export class ConfigBuilder {
     }
 
     return undefined;
+  }
+
+  /**
+   * Sets whether validation is enabled
+   * @param enabled - Whether validation is enabled
+   * @returns The ConfigBuilder instance for method chaining
+   */
+  public setValidationEnabled(enabled: boolean): ConfigBuilder {
+    if (!this.config.validation) {
+      this.config.validation = {
+        enabled: enabled,
+        commands: []
+      };
+    } else {
+      this.config.validation.enabled = enabled;
+    }
+    this.saveConfig(this.config);
+    return this;
+  }
+
+  /**
+   * Sets the validation commands
+   * @param commands - The validation commands to run
+   * @returns The ConfigBuilder instance for method chaining
+   */
+  public setValidationCommands(commands: string[]): ConfigBuilder {
+    if (!this.config.validation) {
+      this.config.validation = {
+        enabled: true,
+        commands: commands
+      };
+    } else {
+      this.config.validation.commands = commands;
+    }
+    this.saveConfig(this.config);
+    return this;
   }
 }
 

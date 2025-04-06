@@ -77,3 +77,32 @@ taskPlanning:
     default:
       provider: openai
       model: gpt-4o
+
+# Validation Configuration
+# Controls code validation before execution
+validation:
+  enabled: true                       # Enable/disable validation checks
+  
+  # Commands to run for validating code
+  # These commands will be executed in the order listed
+  # If any command fails, the execution will be halted
+  commands:
+    - name: lint                      # Descriptive name for the command
+      command: npm run lint           # The actual command to execute
+      workingDir: ./                  # Working directory for the command (optional)
+      failOnError: true               # Whether to stop execution if this command fails
+    
+    - name: test
+      command: npm test
+      workingDir: ./
+      failOnError: false              # Continue execution even if tests fail
+    
+    - name: type-check
+      command: tsc --noEmit
+      workingDir: ./
+      failOnError: true
+      
+    - name: security-scan
+      command: npm audit
+      workingDir: ./
+      failOnError: false              # Security warnings won't block execution
