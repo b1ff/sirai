@@ -53,6 +53,10 @@ chat:
   saveHistory: true                    # Whether to save chat history between sessions
   maxHistoryMessages: 20               # Maximum number of messages to keep in history
 
+askModel:
+  enabled: true
+  provider: llmstudio
+
 # Task Planning Configuration
 taskPlanning:
   enabled: true

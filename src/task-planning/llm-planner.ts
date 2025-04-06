@@ -10,7 +10,9 @@ import {
   ListDirectoriesTool,
   ReadFileTool,
   AskUserTool,
-  RunProcessTool
+  RunProcessTool,
+  AskModelTool,
+  BaseTool
 } from '../llm/tools/index.js';
 import inquirer from 'inquirer';
 
@@ -154,12 +156,24 @@ export class LLMPlanner {
       return confirmation === 'Yes';
     })
 
-    const tools = [
-      readFileTool,
+    // Create AskModelTool if enabled in config
+    let askModelTool: AskModelTool | null = null;
+    if (this.appConfig.askModel?.enabled) {
+      askModelTool = new AskModelTool(contextProfile.projectRoot, this.appConfig);
+    }
+
+    const tools: BaseTool[] = [
       listFilesTool,
       extractPlanTool,
       askUserTool,
     ];
+
+    // Add AskModelTool if enabled
+    if (askModelTool) {
+      tools.push(askModelTool);
+    } else {
+      tools.push(readFileTool);
+    }
 
     // Get directory structure
     let filesStructure = 'Could not retrieve directory structure.'; // Default message
@@ -197,6 +211,14 @@ If you need clarification from the user, use the "ask_user" tool to ask specific
 - You need to confirm your understanding of requirements
 - You need to gather preferences about implementation approaches
 
+If the "ask_model" tool is available, you can use it to delegate analysis tasks to a smaller model. This is useful for:
+- Analyzing file content and providing summaries
+- Extracting specific information from files
+- Generating code snippets or suggestions based on existing code
+- Reducing the cost of the task execution by using a cheaper model for simpler subtasks
+
+To use the "ask_model" tool, provide an array of file paths and a query with questions or tasks. The model will read the files and respond to the query.
+
 ## TASK DECOMPOSITION PHASE
 
 ## Project specific GUIDELINES
@@ -212,7 +234,9 @@ For each subtask specification, use the following structured template:
 <subtask_specification>
 Title: [Descriptive Task Title]
 
-Goal: [Clear statement of what this subtask should accomplish, including needed part of the context from the bigger picture]
+Context of the task: [Description of the task context, considering that executor does not know on the initial task]
+
+Goal: [Clear statement of what this subtask should accomplish]
 
 Context:
 - Files: [Full paths to files that need to be created or modified]

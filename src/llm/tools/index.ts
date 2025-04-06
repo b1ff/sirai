@@ -20,3 +20,4 @@ export * from './store-plan.js';
 export * from './file-source-llm-preparation.js';
 export * from './ask-user.js';
 export * from './store-validation-result.js';
+export * from './ask-model.js';
