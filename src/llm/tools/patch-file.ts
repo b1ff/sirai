@@ -22,7 +22,7 @@ const patchFileParametersSchema = z.object({
     .describe('The file path to patch (relative to working directory). Pay attention to the file path within <file> tags if provided in the prompt.'),
   changes:
     z.array(patchSchema)
-    .describe('A single change or an array of changes to apply to the file. Each change specifies old content to find and new content to replace it with.')
+    .describe('An array of changes to apply to the file. Each change specifies old content to find and new content to replace it with.')
 });
 
 /**

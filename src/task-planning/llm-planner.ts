@@ -103,12 +103,6 @@ export class LLMPlanner {
     }
   }
 
-  /**
-   * Creates a context profile for a project
-   * @param projectRoot - The root directory of the project
-   * @param currentDirectory - The current working directory
-   * @returns A context profile
-   */
   async createContextProfile(
     projectRoot: string,
     currentDirectory: string
