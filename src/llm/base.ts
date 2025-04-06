@@ -6,6 +6,7 @@ import { DEFAULT_PRICING_CONFIG } from '../config/config.js';
  * Interface for LLM configuration
  */
 export interface LLMConfig {
+  provider: string;
   [key: string]: any;
 }
 

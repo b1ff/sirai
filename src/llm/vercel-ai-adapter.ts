@@ -11,10 +11,6 @@ import { AITracer } from '../utils/tracer.js';
 export class VercelAIAdapter extends BaseLLM {
     private aiProvider: BaseVercelAIProvider;
 
-    /**
-     * Constructor
-     * @param config - The LLM configuration
-     */
     constructor(config: LLMConfig & { provider: string }) {
         super(config);
         this.aiProvider = VercelAIFactory.createProvider(this.provider, config);

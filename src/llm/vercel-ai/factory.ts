@@ -10,12 +10,6 @@ import { LmStudioProvider, LmStudioProviderConfig } from './lmstudio.js';
  * Factory for creating Vercel AI provider instances
  */
 export class VercelAIFactory {
-  /**
-   * Creates a Vercel AI provider instance based on the provider type
-   * @param provider - The provider type
-   * @param config - The provider configuration
-   * @returns The Vercel AI provider instance
-   */
   static createProvider(provider: string, config: LLMConfig): BaseVercelAIProvider {
     switch (provider.toLowerCase()) {
       case 'openai':
