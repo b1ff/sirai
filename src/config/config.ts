@@ -24,9 +24,7 @@ export interface ProvidersConfig {
  * Interface for LLM configuration
  */
 export interface LLMConfig {
-  local: LLMProviderConfig;
-  remote: LLMProviderConfig;
-  providers?: ProvidersConfig;
+  providers: ProvidersConfig;
 }
 
 /**

@@ -72,18 +72,13 @@ export function createMockedWriteFileTool(projectDir: string): {
 export async function createRealLLM(): Promise<BaseLLM> {
   const config: AppConfig = {
     llm: {
-      local: {
-        enabled: true,
-        provider: 'lmstudio',
-        model: 'qwen2.5-coder-14b-instruct-mlx'
-      },
-      remote: {
-        enabled: false,
-        provider: 'openai',
-        model: 'gpt-4',
-        apiKey: ''
-      },
       providers: {
+        'openai': {
+          enabled: false,
+          provider: 'openai',
+          model: 'gpt-4',
+          apiKey: ''
+        },
         'ollama': {
           enabled: false,
           provider: 'ollama',
@@ -92,7 +87,7 @@ export async function createRealLLM(): Promise<BaseLLM> {
         'lmstudio': {
           enabled: true,
           provider: 'lmstudio',
-          model: 'qwen2.5-32b-instruct-mlx',
+          model: 'phi-4-mini-instruct',
         },
       }
     },

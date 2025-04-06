@@ -6,13 +6,6 @@ import { LLMType } from '../task-planning/schemas.js';
 import {
   AppConfig,
   LLMProviderConfig,
-  ProvidersConfig,
-  LLMConfig,
-  ExecutionConfig,
-  OutputConfig,
-  PromptsConfig,
-  ChatConfig,
-  TaskPlanningConfig
 } from './config.js';
 
 /**
@@ -67,18 +60,6 @@ export class ConfigBuilder {
   private getDefaultConfig(): AppConfig {
     return {
       llm: {
-        local: {
-          enabled: true,
-          provider: 'ollama',
-          model: 'command-r',
-          baseUrl: 'http://localhost:11434',
-        },
-        remote: {
-          enabled: true,
-          provider: 'openai',
-          model: 'gpt-4',
-          apiKey: '',
-        },
         providers: {
           'openai': {
             enabled: true,
@@ -329,14 +310,6 @@ export class ConfigBuilder {
   public getProviderConfig(providerName: string): LLMProviderConfig | undefined {
     if (this.config.llm?.providers && this.config.llm.providers[providerName]) {
       return this.config.llm.providers[providerName];
-    }
-
-    if (this.config.llm?.local?.provider === providerName) {
-      return this.config.llm.local;
-    }
-
-    if (this.config.llm?.remote?.provider === providerName) {
-      return this.config.llm.remote;
     }
 
     return undefined;

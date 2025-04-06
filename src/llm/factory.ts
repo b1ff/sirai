@@ -6,9 +6,7 @@ import { VercelAIAdapter } from './vercel-ai-adapter.js';
  */
 export interface AppConfig {
   llm?: {
-    local?: LLMProviderConfig;
-    remote?: LLMProviderConfig;
-    providers?: {
+    providers: {
       [key: string]: LLMProviderConfig;
     };
   };
@@ -53,30 +51,48 @@ export class LLMFactory {
    * @returns The LLM instance
    */
   static createLLM(config: AppConfig, type: 'local' | 'remote' = 'local'): BaseLLM {
-    // First try to get the config from the old structure
-    let llmConfig = config.llm?.[type] || {};
-    let provider = llmConfig.provider?.toLowerCase() || 'ollama';
+    // Default provider based on type
+    const defaultProvider = type === 'local' ? 'ollama' : 'openai';
 
-    // Check if the old structure is disabled or not present
-    if (!llmConfig.enabled) {
-      // Try to find the provider in the new structure
-      if (config.llm?.providers && config.llm.providers[provider]) {
-        llmConfig = { ...config.llm.providers[provider] };
+    // Check if providers exist in config
+    if (!config.llm?.providers) {
+      throw new Error('No LLM providers configured');
+    }
 
-        // Check if the provider is enabled
-        if (!llmConfig.enabled) {
-          throw new Error(`Provider ${provider} is disabled in configuration`);
+    // Find an enabled provider
+    for (const [providerName, providerConfig] of Object.entries(config.llm.providers)) {
+      if (providerConfig.enabled) {
+        // For 'local' type, prefer local providers like ollama
+        // For 'remote' type, prefer remote providers like openai, anthropic, etc.
+        const isLocalProvider = providerName === 'ollama';
+        if ((type === 'local' && isLocalProvider) || (type === 'remote' && !isLocalProvider)) {
+          return new VercelAIAdapter({
+            ...providerConfig,
+            provider: providerName
+          });
         }
-      } else {
-        throw new Error(`${type} LLM is disabled in configuration and no alternative provider found`);
       }
     }
 
-    // Ensure provider is set
-    return new VercelAIAdapter({
-      ...llmConfig,
-      provider
-    });
+    // If no type-specific provider found, try to use the default provider for the type
+    if (config.llm.providers[defaultProvider] && config.llm.providers[defaultProvider].enabled) {
+      return new VercelAIAdapter({
+        ...config.llm.providers[defaultProvider],
+        provider: defaultProvider
+      });
+    }
+
+    // If still no provider found, use any enabled provider
+    for (const [providerName, providerConfig] of Object.entries(config.llm.providers)) {
+      if (providerConfig.enabled) {
+        return new VercelAIAdapter({
+          ...providerConfig,
+          provider: providerName
+        });
+      }
+    }
+
+    throw new Error(`No enabled LLM providers found for type: ${type}`);
   }
 
   /**
@@ -87,8 +103,13 @@ export class LLMFactory {
    * @returns The LLM instance
    */
   static createLLMByProvider(config: AppConfig, providerName: string, model?: string): BaseLLM {
-    // First check if the provider exists in the providers section
-    if (config.llm?.providers && config.llm.providers[providerName]) {
+    // Check if providers exist in config
+    if (!config.llm?.providers) {
+      throw new Error('No LLM providers configured');
+    }
+
+    // Check if the provider exists in the providers section
+    if (config.llm.providers[providerName]) {
       const providerConfig = { ...config.llm.providers[providerName] };
 
       // Override the model if provided
@@ -106,27 +127,6 @@ export class LLMFactory {
       return new VercelAIAdapter(providerConfig as LLMConfig & { provider: string });
     }
 
-    // If not found in providers, check if it matches the local or remote provider
-    if (config.llm?.local?.provider === providerName) {
-      const localConfig = { ...config.llm.local };
-      if (model) {
-        localConfig.model = model;
-      }
-      // Ensure provider is set
-      localConfig.provider = providerName;
-      return new VercelAIAdapter(localConfig as LLMConfig & { provider: string });
-    }
-
-    if (config.llm?.remote?.provider === providerName) {
-      const remoteConfig = { ...config.llm.remote };
-      if (model) {
-        remoteConfig.model = model;
-      }
-      // Ensure provider is set
-      remoteConfig.provider = providerName;
-      return new VercelAIAdapter(remoteConfig as LLMConfig & { provider: string });
-    }
-
     throw new Error(`Provider ${providerName} not found in configuration`);
   }
 
@@ -137,9 +137,6 @@ export class LLMFactory {
    * @deprecated Use createLLMByProvider instead
    */
   static createLocalLLM(config: AppConfig): BaseLLM {
-    if (config.llm?.local?.provider) {
-      return this.createLLMByProvider(config, config.llm.local.provider);
-    }
     return this.createLLM(config, 'local');
   }
 
@@ -150,9 +147,6 @@ export class LLMFactory {
    * @deprecated Use createLLMByProvider instead
    */
   static createRemoteLLM(config: AppConfig): BaseLLM {
-    if (config.llm?.remote?.provider) {
-      return this.createLLMByProvider(config, config.llm.remote.provider);
-    }
     return this.createLLM(config, 'remote');
   }
 

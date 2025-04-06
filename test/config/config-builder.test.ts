@@ -12,19 +12,13 @@ describe('ConfigBuilder', () => {
   // Sample configuration for testing
   const sampleConfig: AppConfig = {
     llm: {
-      local: {
-        enabled: true,
-        provider: 'ollama',
-        model: 'test-model',
-        baseUrl: 'http://localhost:11434',
-      },
-      remote: {
-        enabled: true,
-        provider: 'openai',
-        model: 'gpt-4',
-        apiKey: 'test-api-key',
-      },
       providers: {
+        'ollama': {
+          enabled: true,
+          provider: 'ollama',
+          model: 'test-model',
+          baseUrl: 'http://localhost:11434',
+        },
         'openai': {
           enabled: true,
           provider: 'openai',
@@ -181,17 +175,24 @@ describe('ConfigBuilder', () => {
     it('should update a nested configuration value', () => {
       // Get the current config
       const originalConfig = configBuilder.getConfig();
-      const originalModel = originalConfig.llm?.local?.model;
+
+      // Find a provider to update
+      let providerName = 'ollama';
+      if (originalConfig.llm?.providers && Object.keys(originalConfig.llm.providers).length > 0) {
+        providerName = Object.keys(originalConfig.llm.providers)[0];
+      }
+
+      const originalModel = originalConfig.llm?.providers?.[providerName]?.model;
 
       // Update the config
       const newModel = 'test-model-' + Date.now();
-      const updatedConfig = configBuilder.updateConfig('llm.local.model', newModel);
+      const updatedConfig = configBuilder.updateConfig(`llm.providers.${providerName}.model`, newModel);
 
       // Verify the update
-      expect(updatedConfig.llm?.local?.model).to.equal(newModel);
+      expect(updatedConfig.llm?.providers?.[providerName]?.model).to.equal(newModel);
 
       // Restore the original config
-      configBuilder.updateConfig('llm.local.model', originalModel);
+      configBuilder.updateConfig(`llm.providers.${providerName}.model`, originalModel);
     });
 
     it('should create missing objects in the path', () => {
@@ -246,13 +247,6 @@ describe('ConfigBuilder', () => {
       // Try to find a known provider from the config
       if (config.llm?.providers) {
         knownProvider = Object.keys(config.llm.providers)[0] || '';
-      }
-
-      // If no provider found in providers, try local or remote
-      if (!knownProvider && config.llm?.local?.provider) {
-        knownProvider = config.llm.local.provider;
-      } else if (!knownProvider && config.llm?.remote?.provider) {
-        knownProvider = config.llm.remote.provider;
       }
 
       // Skip the test if no known provider found
