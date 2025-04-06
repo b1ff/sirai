@@ -1,6 +1,6 @@
 import * as sinon from 'sinon';
 import { BaseLLM } from '../../src/llm/base.js';
-import { AppConfig } from '../../src/config/config.js';
+import { AppConfig, DEFAULT_PRICING_CONFIG } from '../../src/config/config.js';
 import { CodeRenderer } from '../../src/utils/code-renderer.js';
 import { ProjectContext } from '../../src/utils/project-context.js';
 import { EditFileTool, PatchFileTool, WriteFileTool } from '../../src/llm/tools/index.js';
@@ -75,6 +75,7 @@ export async function createRealLLM(): Promise<BaseLLM> {
       enabled: true,
       commands: []
     },
+    pricing: DEFAULT_PRICING_CONFIG,
     llm: {
       providers: {
         'openai': {

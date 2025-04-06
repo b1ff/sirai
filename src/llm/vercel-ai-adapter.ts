@@ -56,6 +56,9 @@ export class VercelAIAdapter extends BaseLLM {
                 ...this.aiProvider.adaptOptions(options),
             });
 
+            this.trackInputTokens(result.usage.promptTokens);
+            this.trackOutputTokens(result.usage.completionTokens);
+
             // Trace the response
             AITracer.getInstance().traceResponse(result.text);
 
@@ -93,6 +96,10 @@ export class VercelAIAdapter extends BaseLLM {
                 }
             }
 
+            const usage = await stream.usage;
+            this.trackInputTokens(usage.promptTokens);
+            this.trackOutputTokens(usage.completionTokens);
+
             // Trace the complete response
             AITracer.getInstance().traceResponse(fullResponse);
 
@@ -121,6 +128,7 @@ export class VercelAIAdapter extends BaseLLM {
             // Trace the prompt
             AITracer.getInstance().tracePrompt(undefined, prompt);
 
+
             // Use Vercel AI SDK generateObject function
             const result = await generateObject({
                 model: this.aiProvider.getModelProvider()(this.aiProvider.getModel(), { structuredOutputs: true }),
@@ -129,8 +137,14 @@ export class VercelAIAdapter extends BaseLLM {
                 ...this.aiProvider.adaptOptions(options),
             });
 
+            // Convert result to string for token counting
+            const resultString = JSON.stringify(result, null, 2);
+
+            this.trackInputTokens(result.usage.promptTokens);
+            this.trackOutputTokens(result.usage.completionTokens);
+
             // Trace the response
-            AITracer.getInstance().traceResponse(JSON.stringify(result, null, 2));
+            AITracer.getInstance().traceResponse(resultString);
 
             // Double casting to satisfy TypeScript
             return result as unknown as T;

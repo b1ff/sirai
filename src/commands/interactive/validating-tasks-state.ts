@@ -77,6 +77,7 @@ export class ValidatingTasksState implements State {
                 3. failedTasks: If failed, list the specific tasks that failed
                 4. suggestedFixes: If failed, provide specific suggestions for fixing the issues
                 
+                Do not run "interactive" commands, since you won't be able to interact with it and exit it.
                 Be thorough in your validation and provide actionable feedback.`,
                 {
                     tools: [
@@ -103,6 +104,16 @@ export class ValidatingTasksState implements State {
             
             // Get the validation result from the tool
             const validationResult = storeValidationResultTool.getValidationResult();
+            
+            // Get token usage and cost statistics
+            const tokenUsage = llm.getTokenUsage();
+            const costInUSD = llm.getCostInUSD();
+            
+            // Display token usage and cost information
+            console.log(chalk.blue('Token Usage Statistics:'));
+            console.log(chalk.blue(`Total tokens used: ${tokenUsage.toLocaleString()}`));
+            console.log(chalk.blue(`Total cost: ${costInUSD.toFixed(4)} USD`));
+            console.log();
             
             if (!validationResult) {
                 throw new Error('No validation result was provided by the LLM');
@@ -156,6 +167,23 @@ export class ValidatingTasksState implements State {
             }
         } catch (error) {
             console.error(chalk.red(`Error validating tasks: ${error instanceof Error ? error.message : 'Unknown error'}`));
+            
+            // Try to get token usage and cost even in case of error
+            try {
+                const llm = contextData.getLLM();
+                if (llm) {
+                    const tokenUsage = llm.getTokenUsage();
+                    const costInUSD = llm.getCostInUSD();
+                    
+                    console.log(chalk.blue('Token Usage Statistics:'));
+                    console.log(chalk.blue(`Total tokens used: ${tokenUsage.toLocaleString()}`));
+                    console.log(chalk.blue(`Total cost: ${costInUSD.toFixed(4)} USD`));
+                    console.log();
+                }
+            } catch (usageError) {
+                console.error(chalk.yellow('Could not retrieve token usage statistics'));
+            }
+            
             return StateType.GENERATING_PLAN;
         }
     }

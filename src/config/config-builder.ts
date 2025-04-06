@@ -150,6 +150,27 @@ export class ConfigBuilder {
         enabled: true,
         commands: []
       },
+      pricing: {
+        modelPrices: {
+          // OpenAI models
+          'gpt-4': 0.03,
+          'gpt-4-turbo': 0.01,
+          'gpt-4-32k': 0.06,
+          'gpt-3.5-turbo': 0.0015,
+          'gpt-3.5-turbo-16k': 0.003,
+          'gpt-4o': 0.005,
+          // Anthropic models
+          'claude-3-opus-latest': 0.015,
+          'claude-3-7-sonnet-latest': 0.003,
+          'claude-3-haiku-latest': 0.00025,
+          'claude-2': 0.008,
+          // Google models
+          'gemini-2.5-pro-exp-03-25': 0.0025,
+          'gemini-ultra': 0.01,
+          // Ollama models (free/local)
+          'command-r': 0
+        }
+      },
     };
   }
 

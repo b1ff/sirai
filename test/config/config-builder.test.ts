@@ -2,9 +2,8 @@ import { expect } from 'chai';
 import fs from 'fs-extra';
 import path from 'path';
 import { ConfigBuilder } from '../../src/config/config-builder.js';
-import { AppConfig } from '../../src/config/config.js';
+import { AppConfig, DEFAULT_PRICING_CONFIG } from '../../src/config/config.js';
 import { LLMType } from '../../src/task-planning/schemas.js';
-import { ValidationConfig } from '../../src/config/config.js';
 
 describe('ConfigBuilder', () => {
   let configBuilder: ConfigBuilder;
@@ -12,6 +11,7 @@ describe('ConfigBuilder', () => {
 
   // Sample configuration for testing
   const sampleConfig: AppConfig = {
+    pricing: DEFAULT_PRICING_CONFIG,
     llm: {
       providers: {
         'ollama': {

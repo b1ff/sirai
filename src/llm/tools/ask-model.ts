@@ -21,21 +21,15 @@ export class AskModelTool extends BaseTool {
   /**
    * The description of the tool
    */
-  description = 'Ask a local or cheaper LLM model about files. Provide an array of file paths and a query with questions or tasks. The model will read the files if needed and respond to the query.';
+  description = 'Ask a local or cheaper LLM model about files. Provide an array of file paths and a query with questions or tasks. The model will read the files if needed and respond to the query. Attempt to create bigger tasks for analysis, as model can read other files as well if needed.';
 
   /**
    * The parameters of the tool
    */
   parameters = z.object({
-    /**
-     * The paths to the files to analyze
-     */
     paths: z.array(z.string()).describe('An array of file paths to analyze.'),
 
-    /**
-     * The query to ask the model
-     */
-    query: z.string().describe('The query or task for the model to respond to.')
+    query: z.string().describe('The list of queries or task for the model to respond to. Prefer asking multiple questions or giving multiple tasks in one query.'),
   });
 
   /**

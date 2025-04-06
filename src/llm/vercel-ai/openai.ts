@@ -42,5 +42,4 @@ export class OpenAIProvider extends BaseVercelAIProvider {
   async initialize(): Promise<void> {
     // Nothing to initialize for OpenAI
   }
-
 }

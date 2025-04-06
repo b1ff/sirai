@@ -68,6 +68,13 @@ export interface ValidationConfig {
 }
 
 /**
+ * Interface for pricing configuration
+ */
+export interface PricingConfig {
+  modelPrices: Record<string, number>; // Maps model names to their prices per 1000 tokens
+}
+
+/**
  * Interface for task planning configuration
  */
 export interface TaskPlanningConfig {
@@ -115,6 +122,7 @@ export interface AppConfig {
   chat: ChatConfig;
   taskPlanning: TaskPlanningConfig;
   validation: ValidationConfig;
+  pricing: PricingConfig;
   [key: string]: any;
 }
 
@@ -134,3 +142,23 @@ export function updateConfig(key: string, value: any): AppConfig {
 export function getPromptsDir(): string {
   return ConfigBuilder.getInstance().getPromptsDir();
 }
+
+// Default configuration with pricing for common models
+export const DEFAULT_PRICING_CONFIG: PricingConfig = {
+  modelPrices: {
+    // OpenAI models
+    'gpt-4': 0.03,
+    'gpt-4-turbo': 0.01,
+    'gpt-4-32k': 0.06,
+    'gpt-3.5-turbo': 0.0015,
+    'gpt-3.5-turbo-16k': 0.003,
+    // Anthropic models
+    'claude-3-opus': 0.015,
+    'claude-3-sonnet': 0.003,
+    'claude-3-haiku': 0.00025,
+    'claude-2': 0.008,
+    // Google models
+    'gemini-pro': 0.0025,
+    'gemini-ultra': 0.01
+  }
+};

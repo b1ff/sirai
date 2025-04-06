@@ -43,5 +43,4 @@ export class AnthropicProvider extends BaseVercelAIProvider {
   async initialize(): Promise<void> {
     // Nothing to initialize for Anthropic
   }
-
 }
