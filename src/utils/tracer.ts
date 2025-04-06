@@ -3,7 +3,7 @@ import * as path from 'path';
 
 export interface TraceEntry {
   timestamp: string;
-  type: 'prompt' | 'response' | 'tool-call' | 'tool-result';
+  type: 'prompt' | 'response' | 'tool-call' | 'tool-result' | 'error';
   content: string;
   metadata?: Record<string, any>;
 }
@@ -138,5 +138,18 @@ export class AITracer {
 
   public getTraceFilePath(): string {
     return this.traceFile;
+  }
+
+  public traceError(e: unknown) {
+    if (!this.enabled) return;
+
+    const entry: TraceEntry = {
+      timestamp: new Date().toISOString(),
+      type: 'error',
+      content: e instanceof Error ? JSON.stringify(e, null, 2) : String(e)
+    };
+
+    this.appendToFile(`## Error (${new Date(entry.timestamp).toLocaleTimeString()})\n\n` +
+      `\`\`\`\n${entry.content}\n\`\`\`\n\n`);
   }
 }

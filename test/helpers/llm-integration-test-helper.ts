@@ -74,9 +74,8 @@ export async function createRealLLM(): Promise<BaseLLM> {
     llm: {
       local: {
         enabled: true,
-        provider: 'ollama',
-        model: 'mistral-small',
-        baseUrl: 'http://localhost:11434/api'
+        provider: 'lmstudio',
+        model: 'qwen2.5-coder-14b-instruct-mlx'
       },
       remote: {
         enabled: false,
@@ -86,28 +85,15 @@ export async function createRealLLM(): Promise<BaseLLM> {
       },
       providers: {
         'ollama': {
-          enabled: true,
+          enabled: false,
           provider: 'ollama',
-          model: 'gemma:12b',
+          model: 'mistral-small-3.1-24b-instruct-2503',
         },
-        'openai': {
-          enabled: false,
-          provider: 'openai',
-          model: 'gpt-4',
-          apiKey: ''
+        'lmstudio': {
+          enabled: true,
+          provider: 'lmstudio',
+          model: 'qwen2.5-32b-instruct-mlx',
         },
-        'anthropic': {
-          enabled: false,
-          provider: 'anthropic',
-          model: 'claude-3-7-sonnet-latest',
-          apiKey: ''
-        },
-        'google': {
-          enabled: false,
-          provider: 'google',
-          model: 'gemini-2.5-pro-exp-03-25',
-          apiKey: ''
-        }
       }
     },
     execution: {
@@ -128,21 +114,7 @@ export async function createRealLLM(): Promise<BaseLLM> {
     },
     taskPlanning: {
       enabled: true,
-      preferredProvider: 'ollama',
-      providerConfig: {
-        'planning': {
-          provider: 'ollama',
-          model: 'mistral-small'
-        },
-        'coding': {
-          provider: 'ollama',
-          model: 'mistral-small'
-        },
-        'default': {
-          provider: 'ollama',
-          model: 'mistral-small'
-        }
-      },
+      preferredProvider: 'lmstudio',
       complexity: {
         thresholds: {
           medium: 40,
@@ -166,7 +138,7 @@ export async function createRealLLM(): Promise<BaseLLM> {
     }
   };
 
-  return await LLMFactory.getBestLLM(config, { providerName: 'ollama' });
+  return await LLMFactory.getBestLLM(config, { providerName: 'lmstudio' });
 }
 
 /**

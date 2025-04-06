@@ -44,16 +44,16 @@ describe('LLM Integration Test with Real LLM', () => {
     const taskExecutor = new TaskExecutor(new MarkdownRenderer({} as AppConfig, codeRenderer), projectContext, new TaskHistoryManager({prompts: {directory: './.sirai/prompts'}} as AppConfig));
 
     // Define a simple task using the fixture
-    const taskPrompt = taskExecutor.createTaskPrompt();
+    const taskPrompt = await taskExecutor.createTaskPrompt();
     const userInput = `Add endpoint to read dns zone in provided file.`;
 
     // Add context for the LLM
-    let fileContent = await fileSource.renderForLlm(true);
+    let fileContent = await fileSource.renderForLlm(false);
     const promptWithContext = `${taskPrompt}\n\n<user_input>${userInput}</user_input>\n${fileContent}`;
 
     // Execute the task
     const response = await realLlm.generate(undefined, promptWithContext, {
-      tools: [mockedEditFileTool, mockedWriteFileTool],
+      tools: [mockedEditFileTool] //, mockedWriteFileTool],
     });
 
     expect(response).to.be.a('string');

@@ -291,7 +291,7 @@ After the plan is saved successfully, provide a concise summary of your understa
     // 4. Generate task plan using LLM with tools
     try {
       // Generate response using the regular LLM with streaming callback for rendering responses
-      await this.llm.generate(prompt, request, {
+      const response = await this.llm.generate(prompt, request, {
         tools,
         onTokenStream: (token: string) => {
           // If markdown renderer is available, render the token
@@ -307,7 +307,7 @@ After the plan is saved successfully, provide a concise summary of your understa
       const savedPlan = extractPlanTool.getSavedPlan();
 
       if (!savedPlan) {
-        throw new Error('No plan was saved by the LLM. Make sure the LLM is using the extract_plan tool correctly.');
+        throw new Error(`No plan was saved by the LLM. Got response ${response}. Make sure the LLM is using the extract_plan tool correctly.`);
       }
 
       // Transform the saved plan into a TaskPlan
