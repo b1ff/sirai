@@ -187,7 +187,7 @@ ${filesStructure}
 
 ## CONTEXT GATHERING PHASE
 First, use the provided tools to explore the project and gather essential context. Focus on:
-1. Project structure and key files
+1. Needed input files, and it's important for the task dependencies
 2. Dependencies and their versions
 3. Existing code patterns and architecture
 4. Configuration files and settings
@@ -199,40 +199,36 @@ If you need clarification from the user, use the "ask_user" tool to ask specific
 
 ## TASK DECOMPOSITION PHASE
 
-## GUIDELINES
+## Project specific GUIDELINES
 
 ${contextString}
 
 
+## TASK PLANNING PHASE
 Based on the gathered context, create a precise implementation plan by breaking down the request into executable subtasks.
 
 For each subtask specification, use the following structured template:
 
 <subtask_specification>
-SUBTASK: [Unique ID e.g., subtask-1]
 Title: [Descriptive Task Title]
 
-Goal: [Clear statement of what this subtask should accomplish]
+Goal: [Clear statement of what this subtask should accomplish, including needed part of the context from the bigger picture]
 
 Context:
 - Files: [Full paths to files that need to be created or modified]
 - Interfaces: [Description of public interfaces to implement or use]
-- References to use: [Methods, classes, fields, functins, etc. to use]
 - Project Patterns: [Higlight this project specific patterns to follow]
 
 Requirements:
-1. [Detailed requirement 1]
-2. [Detailed requirement 2]
-3. [Additional requirements as needed]
+1. [Detailed requirement 1..n]
 
 Input: [What the subtask starts with]
 
 Output: [Expected deliverable]
 
 Implementation Details:
-1. [Step 1: Specific instruction]
-2. [Step 2: Specific instruction]
-3. [Additional steps as needed]
+1. [include metod signatures, references, etc. to ensure implementation precision]
+2. ...
 </subtask_specification>
 
 ## GUIDELINES FOR EFFECTIVE SUBTASKS:
@@ -249,8 +245,6 @@ Implementation Details:
 
 6. INTERFACE DEFINITIONS: Clearly define how components will interact with each other.
 
-7. EXECUTION ORDER: Create a logical sequence for implementation.
-
 ## VALIDATION INSTRUCTIONS
 
 After all subtasks are implemented, validation will be performed to ensure the solution meets requirements. Include detailed validation instructions in your task plan by adding a "validationInstructions" field.
@@ -263,25 +257,10 @@ Your validation instructions should:
 
 3. EXPECTED RESULTS: Clearly describe what successful validation looks like - what outputs to expect, what behavior should be observed.
 
-4. TROUBLESHOOTING GUIDANCE: Include common issues that might arise and how to address them.
-
-5. MANUAL VERIFICATION: When automated testing isn't sufficient, provide clear steps for manual verification.
-
 Format your validation instructions as a series of numbered steps, with each step containing:
 - The validation action to perform (e.g., run a command, check a file)
 - The expected outcome
 - How to interpret the results
-
-Example:
-"""
-1. Run 'npm run build' to verify the code compiles without errors
-   - Expected: No TypeScript errors, successful build
-   - If errors occur: Check the specific files mentioned in error messages
-
-2. Run 'npm run test' to execute unit tests
-   - Expected: All tests pass with no failures
-   - If tests fail: Review the test output to identify which functionality is broken
-"""
 
 ALWAYS call "store_plan" tool at the end of context gathering. Make sure to include the "validationInstructions" field in your plan with detailed steps for validating the implementation.
 
