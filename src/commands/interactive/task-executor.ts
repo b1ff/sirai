@@ -46,7 +46,7 @@ ${projectContextString}
 2. ADHERE strictly to any file paths, module names, and interface definitions provided
 3. IMPLEMENT code consistent with the existing project patterns and styles using provided tools
 
-${projectContextString} // Include project context/guidelines
+${projectContextString}
 
 ## IMPLEMENTATION GUIDELINES
 - USE the provided file system tools to write, or modify files. Prefer batch modifications within one tool call when possible

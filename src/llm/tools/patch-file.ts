@@ -9,9 +9,9 @@ import { FileSourceLlmPreparation } from './file-source-llm-preparation.js';
  */
 const patchSchema = z.object({
   find: z.string()
-    .describe('The current content to be replaced.'),
+    .describe('The exactly current content to be replaced.'),
   replace: z.string()
-    .describe('The new content to replace the old content with.'),
+    .describe('The new content to replace the found content with.'),
 });
 
 /**

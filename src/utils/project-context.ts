@@ -97,6 +97,9 @@ export class ProjectContext {
           }
         } else if (filePath.endsWith('*.mdc')) {
           const dir = path.dirname(filePath);
+          if (!fs.existsSync(dir)) {
+            continue;
+          }
           const files = fs.readdirSync(dir).filter(file => file.endsWith('.mdc'));
           for (const file of files) {
             guidelinesContent += fs.readFileSync(path.join(dir, file), 'utf8') + '\n';
