@@ -15,7 +15,7 @@ export class FileSystemUtils {
    */
   static getFileLanguage(filePath: string): string {
     const extension = path.extname(filePath).toLowerCase();
-    
+
     const languageMap: { [key: string]: string } = {
       '.js': 'javascript',
       '.ts': 'typescript',
@@ -40,7 +40,7 @@ export class FileSystemUtils {
       '.bat': 'batch',
       '.ps1': 'powershell'
     };
-    
+
     return languageMap[extension] || 'plaintext';
   }
 
@@ -103,29 +103,29 @@ export class FileSystemUtils {
    */
   static async parseDependencies(projectRoot: string): Promise<{ name: string; version: string }[]> {
     const packageJsonPath = path.join(projectRoot, 'package.json');
-    
+
     try {
       if (await fs.pathExists(packageJsonPath)) {
         const packageJson = JSON.parse(await this.readFile(packageJsonPath));
         const dependencies: { name: string; version: string }[] = [];
-        
+
         // Process dependencies
         if (packageJson.dependencies) {
           Object.entries(packageJson.dependencies).forEach(([name, version]) => {
             dependencies.push({ name, version: version as string });
           });
         }
-        
+
         // Process devDependencies
         if (packageJson.devDependencies) {
           Object.entries(packageJson.devDependencies).forEach(([name, version]) => {
             dependencies.push({ name, version: version as string });
           });
         }
-        
+
         return dependencies;
       }
-      
+
       return [];
     } catch (error) {
       if (error instanceof Error) {
@@ -148,14 +148,14 @@ export class FileSystemUtils {
     const technologyStack: string[] = [];
     const fileExtensions = files.map(file => path.extname(file.path).toLowerCase());
     const uniqueExtensions = [...new Set(fileExtensions)];
-    
+
     // Check for package.json (Node.js)
     if (await fs.pathExists(path.join(projectRoot, 'package.json'))) {
       technologyStack.push('Node.js');
-      
+
       // Check for specific frameworks
       const packageJson = JSON.parse(await this.readFile(path.join(projectRoot, 'package.json')));
-      
+
       if (packageJson.dependencies) {
         if (packageJson.dependencies.react) technologyStack.push('React');
         if (packageJson.dependencies.vue) technologyStack.push('Vue.js');
@@ -165,7 +165,7 @@ export class FileSystemUtils {
         if (packageJson.dependencies.gatsby) technologyStack.push('Gatsby');
       }
     }
-    
+
     // Check for specific file types
     if (uniqueExtensions.includes('.py')) technologyStack.push('Python');
     if (uniqueExtensions.includes('.java')) technologyStack.push('Java');
@@ -174,12 +174,12 @@ export class FileSystemUtils {
     if (uniqueExtensions.includes('.php')) technologyStack.push('PHP');
     if (uniqueExtensions.includes('.cs')) technologyStack.push('C#');
     if (uniqueExtensions.includes('.ts') || uniqueExtensions.includes('.tsx')) technologyStack.push('TypeScript');
-    
+
     // Check for specific config files
     if (await fs.pathExists(path.join(projectRoot, 'docker-compose.yml'))) technologyStack.push('Docker');
     if (await fs.pathExists(path.join(projectRoot, 'Dockerfile'))) technologyStack.push('Docker');
     if (await fs.pathExists(path.join(projectRoot, 'kubernetes'))) technologyStack.push('Kubernetes');
-    
+
     return technologyStack;
   }
 
@@ -207,25 +207,25 @@ export class FileSystemUtils {
       }
 
       const entries = await fs.readdir(dir, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         if (entry.isDirectory()) {
           const fullPath = path.join(dir, entry.name);
-          
+
           // Skip .git and node_modules directories
           if (entry.name === '.git' || entry.name === 'node_modules') {
             continue;
           }
-          
+
           const childStructure = await this.createDirectoryStructure(
             fullPath,
             maxDepth - 1
           );
-          
+
           structure.children?.push(childStructure);
         }
       }
-      
+
       return structure;
     } catch (error) {
       console.error(`Error creating directory structure for ${dir}: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -235,6 +235,47 @@ export class FileSystemUtils {
         type: 'directory'
       };
     }
+  }
+
+  /**
+   * Loads the guidelines files according to priority
+   * @param projectRoot - The root directory of the project
+   * @returns The contents of the guidelines files or null if not found
+   */
+  static async loadGuidelines(projectRoot: string): Promise<string | null> {
+    const guidelinesPaths = [
+      path.join(projectRoot, 'sirai/guidelines/index.md'),
+      path.join(projectRoot, 'cursor/rules'),
+      path.join(projectRoot, '.junie/guidelines.md')
+    ];
+    let guidelinesContent = '';
+
+    for (const filePath of guidelinesPaths) {
+      try {
+        if (filePath.endsWith('.md')) {
+          if (await fs.pathExists(filePath)) {
+            guidelinesContent += await fs.readFile(filePath, 'utf8');
+            break;
+          }
+        } else {
+          // This is a directory, look for .mdc files
+          if (await fs.pathExists(filePath)) {
+            const files = (await fs.readdir(filePath)).filter(file => file.endsWith('.mdc'));
+            for (const file of files) {
+              guidelinesContent += await fs.readFile(path.join(filePath, file), 'utf8') + '\n';
+            }
+
+            if (files.length > 0) {
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error reading guidelines file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    return guidelinesContent || null;
   }
 
   /**
@@ -250,28 +291,43 @@ export class FileSystemUtils {
     try {
       // Scan for files
       const filePaths = await this.scanDirectory(projectRoot);
-      
+
       // Get file info
       const filePromises = filePaths.map(filePath => this.getFileInfo(filePath));
       const files = await Promise.all(filePromises);
-      
+
       // Parse dependencies
       const dependencies = await this.parseDependencies(projectRoot);
-      
+
       // Detect technology stack
       const technologyStack = await this.detectTechnologyStack(projectRoot, files);
-      
+
       // Create directory structure (limited to depth 2 for performance)
       const directoryStructure = await this.createDirectoryStructure(projectRoot, 2);
-      
-      return {
+
+      // Load guidelines
+      const guidelines = await this.loadGuidelines(projectRoot);
+
+      const contextProfile: ContextProfile = {
         projectRoot,
         currentDirectory,
         files,
         dependencies,
         technologyStack,
-        directoryStructure
+        directoryStructure,
+        guidelines: guidelines || undefined,
+        createContextString: function() {
+          let contextString = '';
+
+          if (this.guidelines) {
+            contextString += `<project_specific_guidelines>${this.guidelines}</project_specific_guidelines>`;
+          }
+
+          return contextString;
+        }
       };
+
+      return contextProfile;
     } catch (error) {
       if (error instanceof Error) {
         throw new Error(`Error creating context profile: ${error.message}`);

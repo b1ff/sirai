@@ -21,7 +21,7 @@ const patchFileParametersSchema = z.object({
   file_path: z.string()
     .describe('The file path to patch (relative to working directory). Pay attention to the file path within <file> tags if provided in the prompt.'),
   changes:
-    z.array(patchSchema).min(1)
+    z.array(patchSchema)
     .describe('A single change or an array of changes to apply to the file. Each change specifies old content to find and new content to replace it with.')
 });
 
@@ -93,9 +93,9 @@ export class PatchFileTool extends BaseTool {
     try {
       filePath = ensurePathInWorkingDir(file, this.workingDir);
     } catch (error) {
-      return JSON.stringify({ 
-        status: 'error', 
-        message: `${file} is outside the working directory` 
+      return JSON.stringify({
+        status: 'error',
+        message: `${file} is outside the working directory`
       });
     }
 
@@ -126,9 +126,9 @@ export class PatchFileTool extends BaseTool {
     // No need to sort changes as we're working with content directly
     const sortedChanges = [...changesArray];
 
-    const appliedChangesInfo: { 
+    const appliedChangesInfo: {
       find: string;
-      replace: string 
+      replace: string
     }[] = [];
 
     let diff = `File: ${file}

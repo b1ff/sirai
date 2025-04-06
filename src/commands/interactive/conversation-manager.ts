@@ -41,12 +41,8 @@ export class ConversationManager {
     this.chatHistoryManager = chatHistoryManager;
     this.config = config;
     this.projectContext = projectContext;
-    
-    // Initialize the markdown renderer
     this.markdownRenderer = new MarkdownRenderer(config, codeRenderer);
-    
-    // Get project context
-    this.contextString = this.projectContext.createContextString();
+    this.contextString = "";
   }
 
   /**
@@ -69,13 +65,13 @@ export class ConversationManager {
   public processInput(input: string): string {
     // Process the input to replace prompt references
     const processedInput = this.promptManager.processMessage(input);
-    
+
     // Add to history
     this.history.push({ role: 'user', content: processedInput });
-    
+
     // Save history if enabled
     this.saveHistory();
-    
+
     return processedInput;
   }
 
@@ -94,13 +90,16 @@ export class ConversationManager {
   ): Promise<void> {
     try {
       console.log(chalk.blue('\nAssistant:'));
-      
+
+      if (this.contextString !== ''){
+        this.contextString = await this.projectContext.createContextString();
+      }
       // Create the prompt with context and history
       const prompt = this.createPrompt(taskPlanExplanation);
-      
+
       // Use the selected LLM if provided, otherwise use the default LLM
       const activeLLM = selectedLLM || llm;
-      
+
       // Generate and stream the response
       let response = '';
       await activeLLM.generateStream(prompt, input, (chunk) => {
@@ -109,12 +108,12 @@ export class ConversationManager {
         const renderedChunk = this.markdownRenderer.render(chunk);
         process.stdout.write(renderedChunk);
       });
-      
+
       console.log('\n');
-      
+
       // Add to history
       this.history.push({ role: 'assistant', content: response });
-      
+
       // Save history if enabled
       this.saveHistory();
     } catch (error) {
@@ -133,22 +132,22 @@ export class ConversationManager {
    */
   private createPrompt(taskPlanExplanation?: string): string {
     let prompt = '';
-    
+
     // Add context if available
     if (this.contextString) {
       prompt += `${this.contextString}\n`;
     }
-    
+
     // Add history
     for (const message of this.history) {
       prompt += `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}\n`;
     }
-    
+
     // Add task planning information if available
     if (taskPlanExplanation) {
       prompt += `\nTask Planning Information:\n${taskPlanExplanation}\n`;
     }
-    
+
     return prompt;
   }
 
@@ -166,7 +165,7 @@ export class ConversationManager {
    */
   public clearHistory(): void {
     this.history.length = 0;
-    
+
     // Clear saved history if enabled
     if (this.config.chat?.saveHistory) {
       this.chatHistoryManager.clearHistory();
@@ -190,7 +189,7 @@ export class ConversationManager {
    */
   public getLastResponse(): string {
     const assistantMessages = this.history.filter(msg => msg.role === 'assistant');
-    return assistantMessages.length > 0 ? 
+    return assistantMessages.length > 0 ?
       assistantMessages[assistantMessages.length - 1].content : '';
   }
 }

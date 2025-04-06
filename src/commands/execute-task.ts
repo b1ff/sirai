@@ -42,8 +42,8 @@ export async function executeTaskDirectly(options: CommandOptions, config: AppCo
   if (options.taskFile) {
     try {
       // Read task from JSON file
-      const filePath = path.isAbsolute(options.taskFile) 
-        ? options.taskFile 
+      const filePath = path.isAbsolute(options.taskFile)
+        ? options.taskFile
         : path.join(process.cwd(), options.taskFile);
 
       console.log(chalk.blue(`Reading task from file: ${filePath}`));
@@ -87,11 +87,11 @@ export async function executeTaskDirectly(options: CommandOptions, config: AppCo
       // Use the provider specified for this task type
       const providerConfig = config.taskPlanning.providerConfig[taskType];
       llm = LLMFactory.createLLMByProvider(
-        config, 
+        config,
         providerConfig.provider,
         providerConfig.model
       );
-    } 
+    }
     // Fallback to preferredProvider if specified
     else if (config.taskPlanning?.preferredProvider) {
       llm = LLMFactory.createLLMByProvider(config, config.taskPlanning.preferredProvider);
@@ -119,7 +119,7 @@ export async function executeTaskDirectly(options: CommandOptions, config: AppCo
     console.log(chalk.yellow(`Task: ${taskSpecification}`));
 
     // Get project directory
-    const projectDir = projectContext.getProjectContext().projectRoot;
+    const projectDir = (await projectContext.getProjectContext()).projectRoot;
 
     // Pre-load file contents if filesToRead is provided
     let fileContents = '';
@@ -130,7 +130,7 @@ export async function executeTaskDirectly(options: CommandOptions, config: AppCo
     }
 
     // Create a task-specific prompt using the shared method
-    const taskPrompt = taskExecutor.createTaskPrompt();
+    const taskPrompt = await taskExecutor.createTaskPrompt();
 
     const userInput = `${taskSpecification}\n${fileContents}`;
     const success = await taskExecutor.executeTask(taskPrompt, userInput, llm);

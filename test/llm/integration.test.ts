@@ -1,15 +1,16 @@
 import { expect } from 'chai';
 import { TaskExecutor } from '../../src/commands/interactive/task-executor.js';
-import { 
-  createMockedEditFileTool, 
-  createMockedWriteFileTool, 
-  createRealLLM, 
-  createMockedProjectContext, 
-  createCodeRenderer 
+import {
+  createMockedEditFileTool,
+  createMockedWriteFileTool,
+  createRealLLM,
+  createMockedProjectContext,
+  createCodeRenderer
 } from '../helpers/llm-integration-test-helper.js';
 import { FileSourceLlmPreparation } from '../../src/llm/tools/file-source-llm-preparation.js';
 import { MarkdownRenderer } from '../../src/utils/markdown-renderer.js';
 import { AppConfig } from '../../src/config/config.js';
+import { TaskHistoryManager } from '../../src/utils/task-history-manager.js';
 
 describe('LLM Integration Test with Real LLM', () => {
   let fileSource: FileSourceLlmPreparation;
@@ -40,7 +41,7 @@ describe('LLM Integration Test with Real LLM', () => {
     const projectContext = createMockedProjectContext();
 
     // Create an instance of our custom task executor
-    const taskExecutor = new TaskExecutor(new MarkdownRenderer({} as AppConfig, codeRenderer), projectContext);
+    const taskExecutor = new TaskExecutor(new MarkdownRenderer({} as AppConfig, codeRenderer), projectContext, new TaskHistoryManager({prompts: {directory: './.sirai/prompts'}} as AppConfig));
 
     // Define a simple task using the fixture
     const taskPrompt = taskExecutor.createTaskPrompt();

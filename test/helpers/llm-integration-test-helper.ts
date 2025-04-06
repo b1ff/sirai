@@ -88,8 +88,7 @@ export async function createRealLLM(): Promise<BaseLLM> {
         'ollama': {
           enabled: true,
           provider: 'ollama',
-          model: 'qwen2.5:32b',
-          baseUrl: 'http://localhost:11434/api'
+          model: 'gemma:12b',
         },
         'openai': {
           enabled: false,
@@ -178,7 +177,8 @@ export function createMockedProjectContext(): ProjectContext {
     getProjectContext: sinon.stub().returns({
       projectRoot: process.cwd(),
       currentDirectory: process.cwd()
-    })
+    }),
+    createContextString: sinon.stub().resolves(''),
   } as unknown as ProjectContext;
 }
 

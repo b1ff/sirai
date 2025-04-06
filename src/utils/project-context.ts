@@ -6,9 +6,9 @@ import { AppConfig } from '../config/config.js';
  * Interface for project context
  */
 export interface ProjectContextData {
+  guidelines: string | null; // Added field for guidelines
   currentDirectory: string;
   projectRoot: string;
-  cursorRules: string | null;
 }
 
 /**
@@ -52,26 +52,26 @@ export class ProjectContext {
    */
   findProjectRoot(startDir: string = this.getCurrentDirectory(), markerFile: string = '.git'): string | null {
     let currentDir = startDir;
-    
+
     // Limit the search to avoid infinite loops
     const maxDepth = 10;
     let depth = 0;
-    
+
     while (depth < maxDepth) {
       if (this.fileExistsInDirectory(currentDir, markerFile)) {
         return currentDir;
       }
-      
+
       const parentDir = path.dirname(currentDir);
       if (parentDir === currentDir) {
         // Reached the root directory
         break;
       }
-      
+
       currentDir = parentDir;
       depth++;
     }
-    
+
     return null;
   }
 
@@ -80,52 +80,64 @@ export class ProjectContext {
    * @param directory - The directory to look in
    * @returns The contents of the cursor rules file or null if not found
    */
-  loadCursorRules(directory: string = this.getCurrentDirectory()): string | null {
-    const cursorRulesPath = path.join(directory, '.cursorrules');
-    
-    if (fs.existsSync(cursorRulesPath)) {
+  async loadGuidelines(): Promise<string | null> {
+    const guidelinesPaths = [
+      './sirai/guidelines/index.md',
+      './cursor/rules/*.mdc',
+      './junie/guidelines.md'
+    ];
+    let guidelinesContent = '';
+
+    for (const filePath of guidelinesPaths) {
       try {
-        return fs.readFileSync(cursorRulesPath, 'utf8');
-      } catch (error) {
-        if (error instanceof Error) {
-          console.error(`Error reading .cursorrules file: ${error.message}`);
-        } else {
-          console.error('Error reading .cursorrules file: Unknown error');
+        if (filePath.endsWith('.md')) {
+          if (fs.existsSync(filePath)) {
+            guidelinesContent += fs.readFileSync(filePath, 'utf8');
+            break;
+          }
+        } else if (filePath.endsWith('*.mdc')) {
+          const dir = path.dirname(filePath);
+          const files = fs.readdirSync(dir).filter(file => file.endsWith('.mdc'));
+          for (const file of files) {
+            guidelinesContent += fs.readFileSync(path.join(dir, file), 'utf8') + '\n';
+          }
+
+          if (files.length > 0) {
+            break;
+          }
         }
+      } catch (error) {
+        console.error(`Error reading guidelines file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
-    
-    return null;
+
+    return guidelinesContent || null;
   }
 
   /**
    * Gets the project context
    * @returns The project context
    */
-  getProjectContext(): ProjectContextData {
+  async getProjectContext(): Promise<ProjectContextData> {
     const currentDir = this.getCurrentDirectory();
     const projectRoot = this.findProjectRoot(currentDir) || currentDir;
-    const cursorRules = this.loadCursorRules(projectRoot);
-    
+    const guidelines = await this.loadGuidelines();
+
     return {
+      guidelines,
       currentDirectory: currentDir,
       projectRoot,
-      cursorRules
     };
   }
 
-  /**
-   * Creates a context string for the LLM
-   * @returns The context string
-   */
-  createContextString(): string {
-    const context = this.getProjectContext();
+  async createContextString(): Promise<string> {
+    const context = await this.getProjectContext();
     let contextString = '';
-    
-    if (context.cursorRules) {
-      contextString += `Project cursor rules:\n${context.cursorRules}\n\n`;
+
+    if (context.guidelines) {
+      contextString += `<project_specific_guidelines>${context.guidelines}</project_specific_guidelines>`;
     }
-    
+
     return contextString;
   }
 }

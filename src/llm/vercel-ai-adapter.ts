@@ -43,30 +43,23 @@ export class VercelAIAdapter extends BaseLLM {
    * @returns The generated response
    */
   async generate(systemInstructions: string | undefined, userInput: string, options?: LLMOptions): Promise<string> {
-    try {
-      // Trace the prompt
-      AITracer.getInstance().tracePrompt(systemInstructions, userInput);
-      
-      // Use Vercel AI SDK generateText function
-      const result = await generateText({
-        model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
-        prompt: userInput,
-        system: systemInstructions, // note that system instructions works very bad with local llms
-        toolChoice: 'auto',
-        ...this.aiProvider.adaptOptions(options),
-      });
+    // Trace the prompt
+    AITracer.getInstance().tracePrompt(systemInstructions, userInput);
 
-      // Trace the response
-      AITracer.getInstance().traceResponse(result.text);
+    // Use Vercel AI SDK generateText function
+    const result = await generateText({
+      model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
+      prompt: userInput,
+      system: systemInstructions, // note that system instructions works very bad with local llms
+      toolChoice: 'auto',
+      ...this.aiProvider.adaptOptions(options),
+    });
 
-      // Extract the text from the result
-      return result.text;
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to generate response: ${error.message}`);
-      }
-      throw new Error('Failed to generate response: Unknown error');
-    }
+    // Trace the response
+    AITracer.getInstance().traceResponse(result.text);
+
+    // Extract the text from the result
+    return result.text;
   }
 
   async generateStream(

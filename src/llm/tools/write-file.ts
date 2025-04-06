@@ -41,15 +41,16 @@ export class WriteFileTool extends BaseTool {
      * Whether to overwrite the file if it exists
      * @default true
      */
-    overwrite: z.boolean().optional().default(true)
-      .describe('Whether to overwrite the file if it exists'),
+    overwrite: z.boolean().nullable()
+        .describe('Whether to overwrite the file if it exists'),
 
     /**
      * The encoding to use when writing the file
      * @default 'utf-8'
      */
-    encoding: z.enum(['utf-8', 'ascii', 'binary', 'base64', 'hex', 'latin1']).optional().default('utf-8')
-      .describe('The encoding to use when writing the file')
+    encoding: z.enum(['utf-8', 'ascii', 'binary', 'base64', 'hex', 'latin1'])
+        .nullable()
+        .describe('The encoding to use when writing the file')
   });
 
   /**

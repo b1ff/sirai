@@ -18,11 +18,6 @@ export class TaskExecutor {
   private projectContext: ProjectContext;
   private taskHistoryManager: TaskHistoryManager;
 
-  /**
-   * Creates a new task executor
-   * @param markdownRenderer - The markdown renderer
-   * @param projectContext - The project context
-   */
   constructor(
     markdownRenderer: MarkdownRenderer,
     projectContext: ProjectContext,
@@ -33,10 +28,10 @@ export class TaskExecutor {
     this.taskHistoryManager = taskHistoryManager;
   }
 
-  public createTaskPrompt(): string {
+  public async createTaskPrompt(): Promise<string> {
     const projectDir = process.cwd();
 
-    const projectContextString = this.projectContext.createContextString(); // Get context string including project guidelines
+    const projectContextString = await this.projectContext.createContextString(); // Get context string including project guidelines
 
     return `
 You are a precise task executor working in the automation. 
@@ -46,9 +41,20 @@ Current working directory: '${projectDir}'
 
 ${projectContextString}
 
-${projectContextString}
+## EXECUTION INSTRUCTIONS
+1. READ the task specification completely before beginning implementation
+2. ADHERE strictly to any file paths, module names, and interface definitions provided
+3. IMPLEMENT code consistent with the existing project patterns and styles using provided tools
 
-${projectContextString}
+${projectContextString} // Include project context/guidelines
+
+## IMPLEMENTATION GUIDELINES
+- USE the provided file system tools to write, or modify files. Prefer batch modifications within one tool call when possible
+- ALWAYS choose to call tools to make modifications - do not output outside tools calls, it won't be used
+- MAINTAIN the exact interfaces specified to ensure correct integration
+- RESPECT any dependencies mentioned in the task specification
+- IF parts of the specification are ambiguous, make your best judgment based on the context provided and note your assumptions
+
 
 ## EXECUTION INSTRUCTIONS
 1. READ the task specification completely before beginning implementation
@@ -78,7 +84,7 @@ ${projectContextString} // Include project context/guidelines
 
 
       // Get project directory
-      const projectDir = this.projectContext.getProjectContext().projectRoot;
+      const projectDir = (await this.projectContext.getProjectContext()).projectRoot;
 
       // Execute the task with function calling enabled
       const response = await llm.generate(undefined, `${prompt}\n<user_input>${userInput}</user_input>`, {
@@ -137,13 +143,13 @@ ${projectContextString} // Include project context/guidelines
     // Execute each subtask
     for (let i = 0; i < orderedSubtasks.length; i++) {
       const subtask = orderedSubtasks[i];
-      
+
       // Mark subtask as IN_PROGRESS
       subtask.status = TaskStatus.IN_PROGRESS;
       console.log(chalk.yellow(`\nExecuting Task ${i + 1}/${orderedSubtasks.length}: ${subtask.taskSpecification}`));
 
       // Get project directory
-      const projectDir = this.projectContext.getProjectContext().projectRoot;
+      const projectDir = (await this.projectContext.getProjectContext()).projectRoot;
 
       // Pre-load file contents if files_to_read is provided
       let fileContents = '';
@@ -153,22 +159,22 @@ ${projectContextString} // Include project context/guidelines
       }
 
       // Create a task-specific prompt using the shared method
-      const taskPrompt = this.createTaskPrompt();
+      const taskPrompt = await this.createTaskPrompt();
 
       const userInput = `${subtask.taskSpecification}\n${fileContents}`;
-      
+
       // Add retry logic for individual subtasks
       let success = false;
       let retryCount = 0;
       const maxRetries = 5;
-      
+
       while (!success && retryCount < maxRetries) {
         if (retryCount > 0) {
           console.log(chalk.yellow(`Retrying task ${i + 1}/${orderedSubtasks.length} (Attempt ${retryCount + 1}/${maxRetries})...`));
         }
-        
+
         success = await this.executeTask(taskPrompt, userInput, llm);
-        
+
         if (!success) {
           retryCount++;
           if (retryCount >= maxRetries) {
@@ -176,16 +182,16 @@ ${projectContextString} // Include project context/guidelines
           }
         }
       }
-      
+
       // If all retries failed for this subtask, mark as FAILED and return false
       if (!success) {
         subtask.status = TaskStatus.FAILED;
         return false;
       }
-      
+
       // Mark subtask as COMPLETED and add to history
       subtask.status = TaskStatus.COMPLETED;
-      
+
       // Create a minimal TaskPlan from the subtask to pass to addCompletedTask
       const taskPlan: TaskPlan = {
         originalRequest: subtask.taskSpecification,

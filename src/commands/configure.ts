@@ -82,21 +82,7 @@ export async function configureSettings(options: CommandOptions, config: AppConf
  */
 function listConfiguration(config: AppConfig): void {
   console.log(chalk.cyan('Current configuration:'));
-  
-  // Local LLM
-  console.log(chalk.yellow('\nLocal LLM:'));
-  console.log(`  Enabled: ${config.llm?.local?.enabled ? chalk.green('Yes') : chalk.red('No')}`);
-  console.log(`  Provider: ${chalk.blue(config.llm?.local?.provider || 'Not set')}`);
-  console.log(`  Model: ${chalk.blue(config.llm?.local?.model || 'Not set')}`);
-  console.log(`  Base URL: ${chalk.blue(config.llm?.local?.baseUrl || 'Not set')}`);
-  
-  // Remote LLM
-  console.log(chalk.yellow('\nRemote LLM:'));
-  console.log(`  Enabled: ${config.llm?.remote?.enabled ? chalk.green('Yes') : chalk.red('No')}`);
-  console.log(`  Provider: ${chalk.blue(config.llm?.remote?.provider || 'Not set')}`);
-  console.log(`  Model: ${chalk.blue(config.llm?.remote?.model || 'Not set')}`);
-  console.log(`  API Key: ${config.llm?.remote?.apiKey ? chalk.green('Set') : chalk.red('Not set')}`);
-  
+
   // Execution
   console.log(chalk.yellow('\nExecution:'));
   console.log(`  Parallel: ${config.execution?.parallel ? chalk.green('Yes') : chalk.red('No')}`);
