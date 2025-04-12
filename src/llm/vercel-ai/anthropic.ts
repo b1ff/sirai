@@ -30,7 +30,7 @@ export class AnthropicProvider extends BaseVercelAIProvider {
     const anthropic = createAnthropic({
       apiKey: this.apiKey,
       headers: {
-        'anthropic-beta': 'token-efficient-tools-2025-02-19'
+        // 'anthropic-beta': 'token-efficient-tools-2025-02-19'
       },
     });
 

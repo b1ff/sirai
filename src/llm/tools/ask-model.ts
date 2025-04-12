@@ -9,7 +9,7 @@ import { AppConfig, LLMFactory } from '../factory.js';
 import { ReadFileTool } from './read-file.js';
 
 export class AskModelTool extends BaseTool {
-    name = 'delegate_analysis_to_model';
+    name = 'delegate_to_model';
 
     description = 'Delegate analysis to a less capable LLM model about files.' +
         'Think on a couple steps further and try to delegate as much as possible with one query.' +

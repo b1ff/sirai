@@ -130,6 +130,11 @@ export class ConfigBuilder {
             model: 'claude-3-7-sonnet-latest'
           }
         },
+        prePlanning: {
+          enabled: true,
+          provider: 'ollama',
+          confidenceThreshold: 0.7 // Use pre-planning results if confidence is above 70%
+        },
         complexity: {
           thresholds: {
             medium: 40,

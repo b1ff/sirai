@@ -95,6 +95,12 @@ export interface TaskPlanningConfig {
       model?: string;
     };
   };
+  prePlanning?: {
+    enabled: boolean;
+    provider: string;
+    model?: string;
+    confidenceThreshold?: number; // Threshold to determine when to use pre-planning results
+  };
   complexity: {
     thresholds: {
       medium: number;

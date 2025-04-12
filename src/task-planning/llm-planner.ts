@@ -3,6 +3,7 @@ import { AppConfig, LLMFactory } from '../llm/factory.js';
 import { FileSystemUtils } from './file-system-utils.js';
 import { MarkdownRenderer } from '../utils/markdown-renderer.js';
 import { ComplexityLevel, ContextProfile, LLMType, Subtask, TaskPlan } from './schemas.js';
+import { PrePlanner, PrePlanningResult } from './pre-planner.js';
 import { v4 as uuidv4 } from 'uuid';
 import {
     StorePlanTool,
@@ -122,6 +123,21 @@ export class LLMPlanner {
         if (!this.llm) {
             throw new Error('Failed to initialize LLM for task planning');
         }
+
+        // 2. Check if pre-planning is enabled
+        let prePlanningResult: PrePlanningResult | null = null;
+        if (this.appConfig.taskPlanning?.prePlanning?.enabled) {
+            try {
+                console.log('Starting pre-planning phase...');
+                const prePlanner = new PrePlanner(this.appConfig, this.markdownRenderer);
+                prePlanningResult = await prePlanner.analyze(request, contextProfile);
+                console.log(`Pre-planning completed with confidence: ${prePlanningResult.confidence}`);
+            } catch (error) {
+                console.warn(`Pre-planning failed: ${error instanceof Error ? error.message : String(error)}`);
+                // Continue with main planning even if pre-planning fails
+            }
+        }
+
         const { listFilesTool, extractPlanTool, tools } = this.getTools(contextProfile);
 
         // Get directory structure
@@ -136,7 +152,9 @@ export class LLMPlanner {
         }
 
         let contextString = contextProfile.createContextString();
-        const prompt = this.getPrompt(contextProfile, filesStructure, contextString);
+
+        // 3. Modify the prompt to include pre-planning results if available
+        const prompt = this.getPrompt(contextProfile, filesStructure, contextString, prePlanningResult);
 
         // 4. Generate task plan using LLM with tools
         try {
@@ -229,8 +247,14 @@ export class LLMPlanner {
         }
     }
 
-    private getPrompt(contextProfile: ContextProfile, filesStructure: string, contextString: string) {
-        return `
+    private getPrompt(
+        contextProfile: ContextProfile, 
+        filesStructure: string, 
+        contextString: string,
+        prePlanningResult: PrePlanningResult | null = null
+    ) {
+        // Base prompt
+        let prompt = `
 You are a task planning assistant. Your job is to analyze a user request and create a detailed, executable plan to accomplish their goal. Count that plan execution will be automated, without user involvement or intervention.
 
 PROJECT CONTEXT:
@@ -240,7 +264,24 @@ Project Root: ${contextProfile.projectRoot}
 PROJECT DIRECTORY STRUCTURE (limited depth):
 """
 ${filesStructure}
-"""
+"""`;
+
+        if (prePlanningResult) {
+            prompt += `
+
+## PRE-PLANNING ANALYSIS
+The following is an initial analysis performed by a simpler model. Use this as a starting point for your planning:
+
+ANALYSIS:
+${prePlanningResult.analysis}
+
+SUGGESTED APPROACH:
+${prePlanningResult.suggestedApproach}
+`;
+        }
+
+        // Continue with the rest of the prompt
+        prompt += `
 
 ## CONTEXT GATHERING PHASE
 First, use the provided tools to explore the project and gather essential context. Focus on:
@@ -339,6 +380,8 @@ ALWAYS call "store_plan" tool at the end of context gathering. Make sure to incl
 
 After the plan is saved successfully, provide a concise summary of your understanding of the task and the approach you've outlined.
 `;
+
+        return prompt;
     }
 
     private getTools(contextProfile: ContextProfile) {

@@ -18,6 +18,12 @@ export interface AppConfig {
         model?: string;
       };
     };
+    prePlanning?: {
+      enabled: boolean;
+      provider: string;
+      model?: string;
+      confidenceThreshold?: number;
+    };
   };
   [key: string]: any;
 }
@@ -178,7 +184,7 @@ export class LLMFactory {
           // Continue to try the general validation provider
         }
       }
-      
+
       // Try the general validation provider if specific one isn't available
       try {
         const validationConfig = config.taskPlanning.providerConfig.validation;
@@ -191,7 +197,7 @@ export class LLMFactory {
         // Continue to other fallback options
       }
     }
-    
+
     // If a task type is specified, check if there's a specific provider for it in taskPlanning.providerConfig
     if (taskType && config.taskPlanning?.providerConfig?.[taskType]) {
       const taskConfig = config.taskPlanning.providerConfig[taskType];
