@@ -8,7 +8,7 @@ import { BaseLLM } from '../base.js';
 import { AppConfig, LLMFactory } from '../factory.js';
 import { ReadFileTool } from './read-file.js';
 
-export class AskModelTool extends BaseTool {
+export class DelegateToModelTool extends BaseTool {
     name = 'delegate_to_model';
 
     description = 'Delegate analysis to a less capable LLM model about files.' +
@@ -16,11 +16,13 @@ export class AskModelTool extends BaseTool {
         'Provide an array of file paths and a queries with questions or tasks. The model will read the files if needed and respond to the query. Create bigger tasks for analysis, as model can read other files (i.e. dependencies) on its own, so imagine that it is your assistant that could not only execute direct tasks, but also make preliminary analysis and provide a detailed answer. .';
 
     parameters = z.object({
-        paths: z.array(z.string()).describe('An array of file paths to analyze.'),
+        queries: z.array(z.object({
+            paths: z.array(z.string()).describe('An array of file paths to analyze.'),
 
-        query: z.array(z.string())
-            .describe('A query or an array of queries for the model to respond to. ' +
-                'Provide multiple questions or tasks either as a single string or as separate items in an array.'),
+            query: z.string()
+                .describe('A query or an array of queries for the model to respond to. ' +
+                    'Provide multiple questions or tasks either as a single string or as separate items in an array.'),
+        }))
     });
 
     /**
@@ -49,11 +51,6 @@ export class AskModelTool extends BaseTool {
      */
     private fileSourceLlmPreparationClass: typeof FileSourceLlmPreparation = FileSourceLlmPreparation;
 
-    /**
-     * Constructor
-     * @param workingDir - The working directory
-     * @param appConfig - The application configuration
-     */
     constructor(workingDir: string, appConfig: AppConfig) {
         super();
         this.workingDir = path.resolve(workingDir);
@@ -88,16 +85,17 @@ export class AskModelTool extends BaseTool {
 
     async execute(args: Record<string, unknown>): Promise<string> {
         try {
-            const { paths, query } = this.parameters.parse(args);
+            const queries = this.parameters.parse(args).queries;
             const llm = await this.initializeLLM();
-            const filesToRead = await this.getFilesToRead(paths);
-            const filePreparation = new this.fileSourceLlmPreparationClass(filesToRead, this.workingDir);
-            const fileContent = await filePreparation.renderForLlm(false);
-            const queries = Array.isArray(query) ? query : [query];
+
             const results: { query: string; response: string }[] = [];
 
             for (let i = 0; i < queries.length; i++) {
-                const currentQuery = queries[i];
+                const currentQuery = queries[i].query;
+                const paths = queries[i].paths;
+                const filesToRead = await this.getFilesToRead(paths);
+                const filePreparation = new this.fileSourceLlmPreparationClass(filesToRead, this.workingDir);
+                const fileContent = await filePreparation.renderForLlm(false);
                 try {
                     const prompt = this.getPrompt(fileContent, currentQuery);
                     const response = await llm.generate(prompt, currentQuery, {

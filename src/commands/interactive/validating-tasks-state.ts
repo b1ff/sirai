@@ -204,6 +204,16 @@ export class ValidatingTasksState implements State {
     }
 
     private async handleFailedValidation(validationResult: any, taskPlan: any, contextData: any): Promise<StateType> {
+        // Store the validation result in the context for use by FixingValidationErrorsState
+        this.storeValidationResult(contextData, validationResult);
+        
+        // Check if we have suggested fixes and can attempt automatic fixing
+        if (validationResult.suggestedFixes) {
+            console.log(chalk.cyan('Attempting to automatically fix validation errors...'));
+            return StateType.FIXING_VALIDATION_ERRORS;
+        }
+        
+        // Fall back to manual confirmation if no suggested fixes
         const { regenerate } = await inquirer.prompt<{ regenerate: boolean }>([
             {
                 type: 'confirm',
@@ -220,6 +230,10 @@ export class ValidatingTasksState implements State {
         } else {
             return StateType.WAITING_FOR_INPUT;
         }
+    }
+
+    private storeValidationResult(context: StateContext, result: any): void {
+        context.getContextData().setValidationResult(result);
     }
 
     private buildRegenerationFeedback(validationResult: any, taskPlan: any): string {

@@ -12,7 +12,7 @@ import {
     ReadFileTool,
     AskUserTool,
     RunProcessTool,
-    AskModelTool,
+    DelegateToModelTool,
     BaseTool
 } from '../llm/tools/index.js';
 import inquirer from 'inquirer';
@@ -407,9 +407,9 @@ After the plan is saved successfully, provide a concise summary of your understa
         // })
 
         // Create AskModelTool if enabled in config
-        let askModelTool: AskModelTool | null = null;
+        let askModelTool: DelegateToModelTool | null = null;
         if (this.appConfig.askModel?.enabled) {
-            askModelTool = new AskModelTool(contextProfile.projectRoot, this.appConfig);
+            askModelTool = new DelegateToModelTool(contextProfile.projectRoot, this.appConfig);
         }
 
         const tools: BaseTool[] = [

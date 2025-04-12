@@ -10,6 +10,7 @@ import { GeneratingPlanState } from './generating-plan-state.js';
 import { ReviewingPlanState } from './reviewing-plan-state.js';
 import { ExecutingTasksState } from './executing-tasks-state.js';
 import { ValidatingTasksState } from './validating-tasks-state.js';
+import { FixingValidationErrorsState } from './fixing-validation-errors-state.js';
 import { GeneratingSummaryState } from './generating-summary-state.js';
 
 /**
@@ -68,6 +69,8 @@ export class StateContext {
                 return new GeneratingSummaryState();
             case StateType.VALIDATING_TASKS:
                 return new ValidatingTasksState();
+            case StateType.FIXING_VALIDATION_ERRORS:
+                return new FixingValidationErrorsState();
             default:
                 throw new Error(`Unknown state type: ${stateType}`);
         }

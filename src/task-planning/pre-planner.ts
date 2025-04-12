@@ -52,6 +52,7 @@ export class PrePlanner {
         try {
             this.llm = LLMFactory.createLLMByProvider(this.appConfig, provider, model);
             await this.llm.initialize();
+            console.log(`Pre-planning initialized with provider: ${provider}, model: ${model || 'default'}`)
             return this.llm;
         } catch (error) {
             throw new Error(`Failed to initialize LLM for pre-planning: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -87,7 +88,7 @@ export class PrePlanner {
         const contextString = contextProfile.createContextString();
         
         // Create prompt for pre-planning
-        const prompt = this.getPrompt(contextProfile, filesStructure, contextString);
+        const prompt = this.getPrompt(filesStructure, contextString);
 
         // Generate pre-planning analysis
         try {
@@ -114,13 +115,12 @@ export class PrePlanner {
         ];
     }
 
-    /**
-     * Gets the prompt for pre-planning
-     */
-    private getPrompt(contextProfile: ContextProfile, filesStructure: string, contextString: string): string {
+    private getPrompt(filesStructure: string, contextString: string): string {
         return `
 You are a task pre-planning assistant. Your job is to perform an initial analysis of a user request to help with the main planning phase.
-You should focus on understanding the request, identifying key components, and suggesting a high-level approach.
+You should focus on understanding the request, identifying key files, components, interface and hot places, and suggesting a high-level approach.
+Goal is to reduce the amount of analysis that is needed for your teammate who is going to do full analysis and implementation. You must provide specific files, places and even pieces of codes if needed, so the teammate perform less actions.
+With explanation include exact references to files paths, code, and other relevant information.
 
 ## PROJECT CONTEXT
 ${contextString}
@@ -129,10 +129,11 @@ ${contextString}
 ${filesStructure}
 
 ## INSTRUCTIONS
-1. Analyze the user request and identify the key components and requirements
-2. Determine the general approach that would be suitable for this task
-3. Estimate the overall complexity (LOW, MEDIUM, HIGH)
-4. Provide a confidence score (0.0-1.0) for your analysis
+1. Analyze the user request and identify within project the key components and requirements
+2. Read needed files to understand context and dependencies.
+3. Determine the general approach that would be suitable for this task
+4. Estimate the overall complexity (LOW, MEDIUM, HIGH)
+5. Provide a confidence score (0.0-1.0) for your analysis
 
 ## OUTPUT FORMAT
 Provide your analysis in the following format:
@@ -153,9 +154,6 @@ Remember to be concise but thorough in your analysis.
 `;
     }
 
-    /**
-     * Parses the response to extract pre-planning result
-     */
     private parseResponse(response: string): PrePlanningResult {
         // Default values
         let analysis = '';

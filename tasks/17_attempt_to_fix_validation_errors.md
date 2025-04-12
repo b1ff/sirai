@@ -1,0 +1,1 @@
+attempt to fix validation errors right away without planning, based on just input as task executor supplying task context and validation output. After a couple of looping attempts (fix, validation, fix) - go with planning, and standard flow

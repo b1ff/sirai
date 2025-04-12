@@ -11,6 +11,7 @@ import { ConversationManager } from './conversation-manager.js';
 import { CommandHandler } from './command-handler.js';
 import { TaskExecutor } from './task-executor.js';
 import { CommandOptions } from './types.js';
+import { ValidationResult } from '../../task-planning/schemas.js';
 
 /**
  * Class representing the context data for the state machine
@@ -33,6 +34,8 @@ export class ContextData {
   private isActive: boolean;
   private markdownRenderer: MarkdownRenderer;
   private taskHistoryManager: TaskHistoryManager;
+  private validationResult?: ValidationResult;
+  private fixAttempts?: number;
 
   constructor(options: CommandOptions, config: AppConfig) {
     this.projectContext = new Map<string, any>();
@@ -180,5 +183,25 @@ export class ContextData {
 
   public resetRetryCount(): void {
     this.retryCount = 0;
+  }
+
+  public setValidationResult(result: ValidationResult): void {
+    this.validationResult = result;
+  }
+
+  public getValidationResult(): ValidationResult | undefined {
+    return this.validationResult;
+  }
+
+  public incrementFixAttempts(): void {
+    this.fixAttempts = (this.fixAttempts || 0) + 1;
+  }
+
+  public getFixAttempts(): number {
+    return this.fixAttempts || 0;
+  }
+
+  public resetFixAttempts(): void {
+    this.fixAttempts = 0;
   }
 }
