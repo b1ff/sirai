@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import ora from 'ora';
+import ora, { Ora } from 'ora';
 import fs from 'fs/promises';
 import path from 'path';
 import { AppConfig } from '../config/config.js';
@@ -9,8 +9,9 @@ import { ProjectContext } from '../utils/project-context.js';
 import { TaskExecutor } from './interactive/task-executor.js';
 import { TaskHistoryManager } from '../utils/task-history-manager.js';
 import { Subtask, FileToRead } from '../task-planning/schemas.js';
-import { FileSourceLlmPreparation } from '../llm/tools/file-source-llm-preparation.js';
+import { FileSourceLlmPreparation } from '../llm/tools/index.js';
 import { MarkdownRenderer } from '../utils/markdown-renderer.js';
+import { BaseLLM } from '../llm/base.js';
 
 /**
  * Interface for command options
@@ -28,116 +29,157 @@ interface CommandOptions {
   [key: string]: any;
 }
 
+
 export async function executeTaskDirectly(options: CommandOptions, config: AppConfig): Promise<void> {
-  console.log(chalk.cyan('Executing task directly...'));
+    console.log(chalk.cyan('Executing task directly...'));
 
-  let taskSpecification: string;
-  let filesToRead: FileToRead[] | undefined;
-
-  if (options.taskFile) {
     try {
-      // Read task from JSON file
-      const filePath = path.isAbsolute(options.taskFile)
-        ? options.taskFile
-        : path.join(process.cwd(), options.taskFile);
+        // Extract task data
+        const { taskSpecification, filesToRead } = await extractTaskData(options);
 
-      console.log(chalk.blue(`Reading task from file: ${filePath}`));
-      const fileContent = await fs.readFile(filePath, 'utf-8');
-      const taskData = JSON.parse(fileContent);
+        // Initialize LLM
+        const spinner = ora('Initializing LLM...').start();
+        const taskType = options.taskType || 'default';
 
-      // Extract task specification from the JSON
-      if (taskData.taskSpecification) {
-        // If the JSON contains a direct task specification
-        taskSpecification = taskData.taskSpecification;
-        filesToRead = taskData.filesToRead;
-      } else if (taskData.subtasks && taskData.subtasks.length > 0) {
-        // If the JSON contains a task plan with subtasks, use the first subtask
-        const subtask = taskData.subtasks[0] as Subtask;
-        taskSpecification = subtask.taskSpecification;
-        filesToRead = subtask.filesToRead;
-      } else {
-        throw new Error('Invalid task file format. Expected taskSpecification or subtasks array.');
-      }
+        try {
+            const llm = await initializeLLM(config, options, taskType, spinner);
+            await executeTask(config, llm, taskSpecification, filesToRead);
+        } catch (error) {
+            spinner.fail('LLM initialization failed');
+            throw error;
+        }
     } catch (error) {
-      throw new Error(`Failed to read task file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        process.exit(1);
     }
-  } else if (options.task) {
-    // Use task specification provided directly
-    taskSpecification = options.task;
-  } else {
+}
+
+async function extractTaskData(options: CommandOptions): Promise<{
+    taskSpecification: string;
+    filesToRead?: FileToRead[]
+}> {
+    if (options.taskFile) {
+        return readTaskFromFile(options.taskFile);
+    }
+
+    if (options.task) {
+        return { taskSpecification: options.task };
+    }
+
     throw new Error('No task specified. Use --task or provide a task file.');
-  }
+}
 
-  // Initialize LLM
-  const spinner = ora('Initializing LLM...').start();
+async function readTaskFromFile(taskFilePath: string): Promise<{
+    taskSpecification: string;
+    filesToRead?: FileToRead[]
+}> {
+    try {
+        const filePath = path.isAbsolute(taskFilePath)
+            ? taskFilePath
+            : path.join(process.cwd(), taskFilePath);
 
-  // Get task type
-  const taskType = options.taskType || 'default';
+        console.log(chalk.blue(`Reading task from file: ${filePath}`));
+        const fileContent = await fs.readFile(filePath, 'utf-8');
+        const taskData = JSON.parse(fileContent);
 
-  try {
-    let llm;
+        if (taskData.taskSpecification) {
+            return {
+                taskSpecification: taskData.taskSpecification,
+                filesToRead: taskData.filesToRead
+            };
+        }
+
+        if (taskData.subtasks && taskData.subtasks.length > 0) {
+            const subtask = taskData.subtasks[0] as Subtask;
+            return {
+                taskSpecification: subtask.taskSpecification,
+                filesToRead: subtask.filesToRead
+            };
+        }
+
+        throw new Error('Invalid task file format. Expected taskSpecification or subtasks array.');
+    } catch (error) {
+        throw new Error(`Failed to read task file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
+async function initializeLLM(
+    config: AppConfig,
+    options: CommandOptions,
+    taskType: string,
+    spinner: Ora
+): Promise<BaseLLM> {
+    let llm: BaseLLM;
 
     // Check if we have a task-specific provider configuration
-    if (config.taskPlanning?.providerConfig && config.taskPlanning.providerConfig[taskType]) {
-      // Use the provider specified for this task type
-      const providerConfig = config.taskPlanning.providerConfig[taskType];
-      llm = LLMFactory.createLLMByProvider(
-        config,
-        providerConfig.provider,
-        providerConfig.model
-      );
+    if (config.taskPlanning?.providerConfig?.[taskType]) {
+        const providerConfig = config.taskPlanning.providerConfig[taskType];
+        llm = LLMFactory.createLLMByProvider(config, providerConfig.provider, providerConfig.model);
     }
     // Fallback to preferredProvider if specified
     else if (config.taskPlanning?.preferredProvider) {
-      llm = LLMFactory.createLLMByProvider(config, config.taskPlanning.preferredProvider);
+        llm = LLMFactory.createLLMByProvider(config, config.taskPlanning.preferredProvider);
     }
     // Otherwise use the best available LLM based on options
     else {
-      const llmOptions = {
-        providerName: options.provider,
-        preferredProvider: options.preferredProvider
-      };
-      llm = await LLMFactory.getBestLLM(config, llmOptions);
+        const llmOptions = {
+            providerName: options.provider,
+            preferredProvider: options.preferredProvider
+        };
+        llm = await LLMFactory.getBestLLM(config, llmOptions);
     }
-    spinner.succeed(`Using ${llm.getProviderWithModel()}`);
 
-    // Create code renderer and project context
+    spinner.succeed(`Using ${llm.getProviderWithModel()}`);
+    return llm;
+}
+
+async function executeTask(
+    config: AppConfig,
+    llm: BaseLLM,
+    taskSpecification: string,
+    filesToRead?: FileToRead[]
+): Promise<void> {
+    // Create dependencies
     const codeRenderer = new CodeRenderer(config);
     const projectContext = new ProjectContext(config);
-
-    // Create task executor
     const taskHistoryManager = new TaskHistoryManager(config);
-    const taskExecutor = new TaskExecutor(new MarkdownRenderer(config, codeRenderer), projectContext, taskHistoryManager);
+    const taskExecutor = new TaskExecutor(
+        new MarkdownRenderer(config, codeRenderer),
+        projectContext,
+        taskHistoryManager
+    );
 
-    // Execute the task
+    // Log task execution
     console.log(chalk.blue('\nExecuting task...'));
     console.log(chalk.yellow(`Task: ${taskSpecification}`));
 
-    // Get project directory
-    const projectDir = (await projectContext.getProjectContext()).projectRoot;
+    // Prepare file contents if needed
+    const fileContents = await prepareFileContents(projectContext, filesToRead);
 
-    // Pre-load file contents if filesToRead is provided
-    let fileContents = '';
-    if (filesToRead && filesToRead.length > 0) {
-      console.log(chalk.blue(`Reading ${filesToRead.map(f => f.path).join(', ')} file(s) for context...`));
-      const filePreparation = new FileSourceLlmPreparation(filesToRead, projectDir);
-      fileContents = await filePreparation.renderForLlm(true);
-    }
-
-    // Create a task-specific prompt using the shared method
+    // Execute the task
     const taskPrompt = await taskExecutor.createTaskPrompt();
-
     const userInput = `${taskSpecification}\n${fileContents}`;
     const success = await taskExecutor.executeTask(taskPrompt, userInput, llm);
 
     if (success) {
-      console.log(chalk.green('\nTask executed successfully'));
+        console.log(chalk.green('\nTask executed successfully'));
     } else {
-      console.error(chalk.red('\nTask execution failed'));
-      process.exit(1);
+        console.error(chalk.red('\nTask execution failed'));
+        process.exit(1);
     }
-  } catch (error) {
-    spinner.fail('LLM initialization failed');
-    throw error;
-  }
+}
+
+async function prepareFileContents(
+    projectContext: ProjectContext,
+    filesToRead?: FileToRead[]
+): Promise<string> {
+    if (!filesToRead || filesToRead.length === 0) {
+        return '';
+    }
+
+    const projectDir = (await projectContext.getProjectContext()).projectRoot;
+    console.log(chalk.blue(`Reading ${filesToRead.map(f => f.path).join(', ')} file(s) for context...`));
+
+    const filePreparation = new FileSourceLlmPreparation(filesToRead, projectDir);
+    return filePreparation.renderForLlm(true);
 }
