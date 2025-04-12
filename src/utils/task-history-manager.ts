@@ -1,7 +1,7 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { AppConfig } from '../config/config.js';
-import { TaskPlan, Subtask } from '../task-planning/schemas.js';
+import { TaskPlan, Subtask, ImplementationDetails } from '../task-planning/schemas.js';
 
 /**
  * Manages task execution history
@@ -145,5 +145,72 @@ export class TaskHistoryManager {
       }
       return false;
     }
+  }
+
+  /**
+   * Gets implementation details for a specific task
+   * @param taskId - The ID of the task to get details for
+   * @returns The implementation details or undefined if not found
+   */
+  getTaskImplementationDetails(taskId: string): ImplementationDetails | undefined {
+    const tasks = this.loadHistory();
+    const task = tasks.find(t => t.subtasks.some(st => st.id === taskId));
+    if (!task) {
+      return undefined;
+    }
+    return task.subtasks.find(st => st.id === taskId)?.implementationDetails;
+  }
+
+  /**
+   * Gets implementation details for all tasks
+   * @returns Map of task IDs to their implementation details
+   */
+  getAllImplementationDetails(): Map<string, ImplementationDetails> {
+    const tasks = this.loadHistory();
+    const detailsMap = new Map<string, ImplementationDetails>();
+    
+    tasks.forEach(task => {
+      task.subtasks.forEach(subtask => {
+        if (subtask.implementationDetails) {
+          detailsMap.set(subtask.id, subtask.implementationDetails);
+        }
+      });
+    });
+    
+    return detailsMap;
+  }
+
+  /**
+   * Gets a summary of implementation details for completed tasks
+   * @returns A string summary of implementation details
+   */
+  getImplementationDetailsSummary(): string {
+    const tasks = this.loadHistory();
+    
+    if (tasks.length === 0) {
+      return "No implementation details found.";
+    }
+    
+    const summary = tasks.map((task, index) => {
+      const date = task.completedAt 
+        ? new Date(task.completedAt).toLocaleString() 
+        : 'Unknown date';
+      
+      const subtaskDetails = task.subtasks
+        .filter(st => st.implementationDetails)
+        .map(st => {
+          const details = st.implementationDetails!;
+          return `  - ${st.id}:
+    Modified Files: ${details.modifiedFiles.length}
+    Public Interfaces: ${details.publicInterfaces.length}
+    Additional Context Items: ${details.additionalContext.length}`;
+        })
+        .join('\n');
+      
+      return `${index + 1}. ${task.originalRequest.substring(0, 100)}${task.originalRequest.length > 100 ? '...' : ''} (${date})
+${subtaskDetails}`;
+    }).join('\n\n');
+    
+    return `Implementation Details Summary (${tasks.length} tasks):\n${summary}`;
   }
 }

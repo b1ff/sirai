@@ -100,22 +100,27 @@ export class AITracer {
   private formatPrompt(entry: TraceEntry): string {
     return `## Prompt (${new Date(entry.timestamp).toLocaleTimeString()})\n\n` +
       (entry.metadata?.systemInstructions ? 
-        `### System Instructions\n\n\`\`\`\n${entry.metadata.systemInstructions}\n\`\`\`\n\n` : '') +
-      `### User Input\n\n\`\`\`\n${entry.content}\n\`\`\`\n\n`;
+        `### System Instructions\n\n\`\`\`\n${this.escapeMarkdown(entry.metadata.systemInstructions)}\n\`\`\`\n\n` : '') +
+      `### User Input\n\n\`\`\`\n${this.escapeMarkdown(entry.content)}\n\`\`\`\n\n`;
   }
 
   private formatResponse(entry: TraceEntry): string {
     return `## Response (${new Date(entry.timestamp).toLocaleTimeString()})\n\n` +
-      `\`\`\`\n${entry.content}\n\`\`\`\n\n`;
+      `\`\`\`\n${this.escapeMarkdown(entry.content)}\n\`\`\`\n\n`;
   }
 
   private formatToolCall(entry: TraceEntry): string {
     return `## Tool Call: ${entry.metadata?.toolName} (${new Date(entry.timestamp).toLocaleTimeString()})\n\n` +
-      `### Arguments\n\n\`\`\`json\n${entry.content}\n\`\`\`\n\n`;
+      `### Arguments\n\n\`\`\`json\n${this.escapeMarkdown(entry.content)}\n\`\`\`\n\n`;
   }
 
   private formatToolResult(entry: TraceEntry): string {
-    return `### Result\n\n\`\`\`\n${entry.content}\n\`\`\`\n\n`;
+    return `### Result\n\n\`\`\`\n${this.escapeMarkdown(entry.content)}\n\`\`\`\n\n`;
+  }
+
+  private escapeMarkdown(content: string): string {
+    // Replace backticks with escaped backticks
+    return content.replace(/`/g, '\\`');
   }
 
   private appendToFile(content: string): void {

@@ -5,7 +5,7 @@ import { BaseLLM } from '../../llm/base.js';
 import { MarkdownRenderer } from '../../utils/markdown-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
 import { WriteFileTool, PatchFileTool } from '../../llm/tools/index.js';
-import { Subtask, TaskPlan } from '../../task-planning/schemas.js';
+import { Subtask, TaskPlan, ImplementationDetails } from '../../task-planning/schemas.js';
 import { TaskStatus } from '../interactive/task-types.js';
 import { TaskHistoryManager } from '../../utils/task-history-manager.js';
 import { FileSourceLlmPreparation } from '../../llm/tools/file-source-llm-preparation.js';
@@ -31,7 +31,7 @@ export class TaskExecutor {
   public async createTaskPrompt(): Promise<string> {
     const projectDir = process.cwd();
 
-    const projectContextString = await this.projectContext.createContextString(); // Get context string including project guidelines
+    const projectContextString = await this.projectContext.createContextString();
 
     return `
 You are a precise task executor working in the automation. 
@@ -45,23 +45,7 @@ ${projectContextString}
 1. READ the task specification completely before beginning implementation
 2. ADHERE strictly to any file paths, module names, and interface definitions provided
 3. IMPLEMENT code consistent with the existing project patterns and styles using provided tools
-
-${projectContextString}
-
-## IMPLEMENTATION GUIDELINES
-- USE the provided file system tools to write, or modify files. Prefer batch modifications within one tool call when possible
-- ALWAYS choose to call tools to make modifications - do not output outside tools calls, it won't be used
-- MAINTAIN the exact interfaces specified to ensure correct integration
-- RESPECT any dependencies mentioned in the task specification
-- IF parts of the specification are ambiguous, make your best judgment based on the context provided and note your assumptions
-
-
-## EXECUTION INSTRUCTIONS
-1. READ the task specification completely before beginning implementation
-2. ADHERE strictly to any file paths, module names, and interface definitions provided
-3. IMPLEMENT code consistent with the existing project patterns and styles using provided tools
-
-${projectContextString} 
+4. PROVIDE implementation details in the specified format after completing the task
 
 ## IMPLEMENTATION GUIDELINES
 - USE the provided file system tools to write, or modify files. Prefer batch modifications within one tool call when possible
@@ -69,7 +53,96 @@ ${projectContextString}
 - MAINTAIN the exact interfaces specified to ensure correct integration
 - RESPECT any dependencies mentioned in the task specification
 - IF parts of the specification are ambiguous, make your best judgment based on the context provided and note your assumptions
+
+## IMPLEMENTATION DETAILS FORMAT
+After completing the task, provide implementation details in the following format:
+
+\`\`\`markdown
+## Implementation Details
+
+### Modified/Created Files
+- /path/to/file1 - Brief description of changes
+- /path/to/file2 - Brief description of changes
+
+### Public Interfaces
+\`\`\`typescript
+// Document any new or modified public interfaces
+// Include method signatures and types
+\`\`\`
+
+### Additional Context
+- Important implementation details
+- Dependencies or configurations added
+- Patterns or approaches used
+- Information needed for future tasks
+\`\`\`
+
+These details will be used by dependent tasks, so be thorough and precise.
 `;
+  }
+
+  private parseImplementationDetails(response: string): ImplementationDetails | undefined {
+    try {
+      const modifiedFilesMatch = response.match(/### Modified\/Created Files\n([\s\S]*?)(?=###|$)/);
+      const publicInterfacesMatch = response.match(/### Public Interfaces\n\`\`\`typescript\n([\s\S]*?)\`\`\`/);
+      const additionalContextMatch = response.match(/### Additional Context\n([\s\S]*?)(?=```|$)/);
+
+      if (!modifiedFilesMatch && !publicInterfacesMatch && !additionalContextMatch) {
+        return undefined;
+      }
+
+      const implementationDetails: ImplementationDetails = {
+        modifiedFiles: [],
+        publicInterfaces: [],
+        additionalContext: []
+      };
+
+      if (modifiedFilesMatch) {
+        const filesText = modifiedFilesMatch[1];
+        implementationDetails.modifiedFiles = filesText
+          .split('\n')
+          .filter(line => line.trim().startsWith('-'))
+          .map(line => {
+            const [path, ...description] = line.replace('-', '').trim().split(' - ');
+            return {
+              path: path.trim(),
+              description: description.join(' - ').trim()
+            };
+          });
+      }
+
+      if (publicInterfacesMatch) {
+        const interfacesText = publicInterfacesMatch[1];
+        // Simple parsing of interfaces - can be enhanced based on needs
+        implementationDetails.publicInterfaces = interfacesText
+          .split('\n')
+          .filter(line => line.trim() && !line.trim().startsWith('//'))
+          .map(line => ({
+            name: line.split('(')[0].trim(),
+            type: 'interface',
+            signature: line.trim()
+          }));
+      }
+
+      if (additionalContextMatch) {
+        const contextText = additionalContextMatch[1];
+        implementationDetails.additionalContext = contextText
+          .split('\n')
+          .filter(line => line.trim().startsWith('-'))
+          .map(line => {
+            const [key, ...value] = line.replace('-', '').trim().split(':');
+            return {
+              key: key.trim(),
+              value: value.join(':').trim()
+            };
+          });
+      }
+
+      return implementationDetails;
+    } catch (error) {
+      console.error('Error parsing implementation details:', error);
+      return undefined;
+    }
   }
 
   public async executeTask(prompt: string, userInput: string, llm: BaseLLM): Promise<boolean> {
@@ -81,16 +154,12 @@ ${projectContextString}
     // Create a spinner
     const spinner = ora('Thinking...').start();
     try {
-
-
       // Get project directory
       const projectDir = (await this.projectContext.getProjectContext()).projectRoot;
 
       // Execute the task with function calling enabled
       const response = await llm.generate(undefined, `${prompt}\n<user_input>${userInput}</user_input>`, {
-        // Enable function calling
         tools: [
-          // new EditFileTool(projectDir),
           new PatchFileTool(projectDir),
           new WriteFileTool(projectDir, async (filePath, content) => {
             spinner.stop();
@@ -114,9 +183,12 @@ ${projectContextString}
       console.log(chalk.green('\nTask executed successfully'));
       console.log(chalk.blue('\nAssistant:'));
       process.stdout.write(this.markdownRenderer.render(response));
-      return true;
+
+      // Parse and return implementation details
+      const implementationDetails = this.parseImplementationDetails(response);
+      return implementationDetails !== undefined;
     } catch (error) {
-        spinner.stop();
+      spinner.stop();
       console.error(chalk.red(`Error executing task: ${error instanceof Error ? error.message : 'Unknown error'}`));
       return false;
     }
@@ -155,13 +227,28 @@ ${projectContextString}
       let fileContents = '';
       if (subtask.filesToRead && subtask.filesToRead.length > 0) {
         const filePreparation = new FileSourceLlmPreparation(subtask.filesToRead, projectDir);
-        fileContents = await filePreparation.renderForLlm(false); // true to include line numbers
+        fileContents = await filePreparation.renderForLlm(false);
       }
 
       // Create a task-specific prompt using the shared method
       const taskPrompt = await this.createTaskPrompt();
 
-      const userInput = `${subtask.taskSpecification}\n${fileContents}`;
+      // Include implementation details from dependencies
+      let dependencyDetails = '';
+      if (subtask.dependencies && subtask.dependencies.length > 0) {
+        const dependencyTasks = orderedSubtasks.filter(t => subtask.dependencies.includes(t.id));
+        dependencyDetails = dependencyTasks
+          .map(task => {
+            if (task.implementationDetails) {
+              return `## Implementation Details from Dependency: ${task.id}\n${JSON.stringify(task.implementationDetails, null, 2)}`;
+            }
+            return '';
+          })
+          .filter(Boolean)
+          .join('\n\n');
+      }
+
+      const userInput = `${subtask.taskSpecification}\n${fileContents}\n${dependencyDetails}`;
 
       // Add retry logic for individual subtasks
       let success = false;
@@ -198,6 +285,7 @@ ${projectContextString}
         overallComplexity: subtask.complexity,
         subtasks: [subtask],
         executionOrder: [subtask.id],
+        implementationDetails: subtask.implementationDetails,
         completedAt: Date.now()
       };
       this.taskHistoryManager.addCompletedTask(taskPlan);

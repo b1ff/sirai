@@ -11,6 +11,10 @@ describe('ConfigBuilder', () => {
 
   // Sample configuration for testing
   const sampleConfig: AppConfig = {
+    tokenLimits: { // Assuming a structure for tokenLimits
+      maxTokens: 4096
+    },
+
     pricing: DEFAULT_PRICING_CONFIG,
     llm: {
       providers: {

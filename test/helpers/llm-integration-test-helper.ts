@@ -76,6 +76,7 @@ export async function createRealLLM(): Promise<BaseLLM> {
       commands: []
     },
     pricing: DEFAULT_PRICING_CONFIG,
+    tokenLimits: { maxTokens: 4096 },
     llm: {
       providers: {
         'openai': {

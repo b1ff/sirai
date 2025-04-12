@@ -67,6 +67,25 @@ export interface FileToRead {
 }
 
 /**
+ * Interface for storing implementation details of a task
+ */
+export interface ImplementationDetails {
+  modifiedFiles: {
+    path: string;
+    description: string;
+  }[];
+  publicInterfaces: {
+    name: string;
+    type: string;
+    signature: string;
+  }[];
+  additionalContext: {
+    key: string;
+    value: string;
+  }[];
+}
+
+/**
  * Interface for a subtask in the task plan
  */
 export interface Subtask {
@@ -77,6 +96,7 @@ export interface Subtask {
   dependencies: string[];
   filesToRead?: FileToRead[];
   status?: TaskStatus; // Default is TaskStatus.PENDING
+  implementationDetails?: ImplementationDetails;
 }
 
 /**
@@ -115,7 +135,10 @@ export interface TaskPlan {
    * Validation result after task execution
    */
   validationResult?: ValidationResult;
-
+  /**
+   * Implementation details for the entire task plan
+   */
+  implementationDetails?: ImplementationDetails;
   /**
    * Timestamp when the task was completed
    */

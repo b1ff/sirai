@@ -75,6 +75,13 @@ export interface PricingConfig {
 }
 
 /**
+ * Interface for token limit configuration
+ */
+export interface TokenLimitConfig {
+  maxTokens: number; // Maximum number of tokens allowed for LLM input
+}
+
+/**
  * Interface for task planning configuration
  */
 export type TaskType = 'planning' | 'execution' | 'validation' | string;
@@ -125,6 +132,7 @@ export interface AppConfig {
   taskPlanning: TaskPlanningConfig;
   validation: ValidationConfig;
   pricing: PricingConfig;
+  tokenLimits: TokenLimitConfig;
   [key: string]: any;
 }
 
@@ -144,6 +152,11 @@ export function updateConfig(key: string, value: any): AppConfig {
 export function getPromptsDir(): string {
   return ConfigBuilder.getInstance().getPromptsDir();
 }
+
+// Default configuration for token limits
+export const DEFAULT_TOKEN_LIMIT_CONFIG: TokenLimitConfig = {
+  maxTokens: 8000000 // 8000k tokens default maximum
+};
 
 // Default configuration with pricing for common models
 export const DEFAULT_PRICING_CONFIG: PricingConfig = {

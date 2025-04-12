@@ -8,17 +8,12 @@ import { BaseLLM } from '../base.js';
 import { AppConfig, LLMFactory } from '../factory.js';
 import { ReadFileTool } from './read-file.js';
 
-/**
- * Tool for asking a local LLM model about files
- * This tool allows delegating tasks from a larger model to smaller, local models to reduce costs
- */
 export class AskModelTool extends BaseTool {
-  /**
-   * The name of the tool
-   */
-  name = 'ask_model';
+  name = 'delegate_analysis_to_model';
 
-  description = 'Ask a local or cheaper LLM model about files. Provide an array of file paths and a query with questions or tasks. The model will read the files if needed and respond to the query. Attempt to create bigger tasks for analysis, as model can read other files (i.e. dependencies) as well.';
+  description = 'Delegate analysis to a less capable LLM model about files.' +
+      'Think on a couple steps further and try to delegate as much as possible with one query.' +
+      'Provide an array of file paths and a queries with questions or tasks. The model will read the files if needed and respond to the query. Create bigger tasks for analysis, as model can read other files (i.e. dependencies) on its own, so imagine that it is your assistant that could not only execute direct tasks, but also make preliminary analysis and provide a detailed answer. .';
 
   parameters = z.object({
     paths: z.array(z.string()).describe('An array of file paths to analyze.'),

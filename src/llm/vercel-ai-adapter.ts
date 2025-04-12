@@ -16,28 +16,14 @@ export class VercelAIAdapter extends BaseLLM {
         this.aiProvider = VercelAIFactory.createProvider(this.provider, config);
     }
 
-    /**
-     * Initializes the LLM
-     */
     async initialize(): Promise<void> {
         await this.aiProvider.initialize();
     }
 
-    /**
-     * Gets the provider and model information as a string
-     * @returns A string in the format "provider:model"
-     */
     override getProviderWithModel(): string {
         return `${this.provider}:${this.aiProvider.getModel()}`;
     }
 
-    /**
-     * Generates a response to a prompt
-     * @param systemInstructions - The system instructions to send to the LLM
-     * @param userInput - The user input
-     * @param options - Additional options
-     * @returns The generated response
-     */
     async generate(systemInstructions: string | undefined, userInput: string, options?: LLMOptions): Promise<string> {
         try {
             // Trace the prompt

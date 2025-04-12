@@ -61,6 +61,10 @@ export class ConfigBuilder {
    */
   private getDefaultConfig(): AppConfig {
     return {
+      tokenLimits: {
+        maxTokens: 4096,
+      },
+
       llm: {
         providers: {
           'openai': {
