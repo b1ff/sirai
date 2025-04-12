@@ -159,7 +159,7 @@ async function executeTask(
     // Execute the task
     const taskPrompt = await taskExecutor.createTaskPrompt();
     const userInput = `${taskSpecification}\n${fileContents}`;
-    const success = await taskExecutor.executeTask(taskPrompt, userInput, llm);
+    const success = await taskExecutor.executeTask(taskPrompt, userInput, llm, 'task-1');
 
     if (success) {
         console.log(chalk.green('\nTask executed successfully'));

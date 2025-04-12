@@ -5,14 +5,14 @@ import { MarkdownRenderer } from '../utils/markdown-renderer.js';
 import { ComplexityLevel, ContextProfile, LLMType, Subtask, TaskPlan } from './schemas.js';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  StorePlanTool,
-  ListFilesTool,
-  ListDirectoriesTool,
-  ReadFileTool,
-  AskUserTool,
-  RunProcessTool,
-  AskModelTool,
-  BaseTool
+    StorePlanTool,
+    ListFilesTool,
+    ListDirectoriesTool,
+    ReadFileTool,
+    AskUserTool,
+    RunProcessTool,
+    AskModelTool,
+    BaseTool
 } from '../llm/tools/index.js';
 import inquirer from 'inquirer';
 
@@ -20,169 +20,218 @@ import inquirer from 'inquirer';
  * Configuration for the LLM planner
  */
 export interface LLMPlannerConfig {
-  maxContextSize?: number; // Maximum context size in characters
-  chunkSize?: number; // Size of chunks for context management
-  preferredProvider?: string; // Preferred LLM provider (openai, claude, ollama)
-  taskType?: string; // Type of task (planning, coding, etc.)
-  debug?: boolean; // Enable debug mode
+    maxContextSize?: number; // Maximum context size in characters
+    chunkSize?: number; // Size of chunks for context management
+    preferredProvider?: string; // Preferred LLM provider (openai, claude, ollama)
+    taskType?: string; // Type of task (planning, coding, etc.)
+    debug?: boolean; // Enable debug mode
 }
 
 /**
  * Default configuration for the LLM planner
  */
 const DEFAULT_CONFIG: LLMPlannerConfig = {
-  maxContextSize: 8000, // Default maximum context size
-  chunkSize: 1000, // Default chunk size
-  preferredProvider: 'anthropic', // Default to Anthropic
-  taskType: 'planning' // Default task type
+    maxContextSize: 8000, // Default maximum context size
+    chunkSize: 1000, // Default chunk size
+    preferredProvider: 'anthropic', // Default to Anthropic
+    taskType: 'planning' // Default task type
 };
 
 /**
  * Main class for LLM-based task planning
  */
 export class LLMPlanner {
-  private config: LLMPlannerConfig;
-  private appConfig: AppConfig;
-  private llm: BaseLLM | null = null;
-  private markdownRenderer?: MarkdownRenderer;
+    private config: LLMPlannerConfig;
+    private appConfig: AppConfig;
+    private llm: BaseLLM | null = null;
+    private markdownRenderer?: MarkdownRenderer;
 
 
-  constructor(appConfig: AppConfig, config: Partial<LLMPlannerConfig> | any = {}, markdownRenderer?: MarkdownRenderer) {
-    this.appConfig = appConfig;
-    this.config = {
-      maxContextSize: config.maxContextSize || DEFAULT_CONFIG.maxContextSize,
-      chunkSize: config.chunkSize || DEFAULT_CONFIG.chunkSize,
-      preferredProvider: config.preferredProvider || DEFAULT_CONFIG.preferredProvider,
-      taskType: config.taskType || DEFAULT_CONFIG.taskType,
-      debug: config.debug || false
-    };
-    this.markdownRenderer = markdownRenderer;
-  }
-
-  /**
-   * Initializes the LLM
-   * @returns A promise that resolves when the LLM is initialized
-   */
-  async initialize(): Promise<BaseLLM> {
-    if (this.llm) {
-      return this.llm;
+    constructor(appConfig: AppConfig, config: Partial<LLMPlannerConfig> | any = {}, markdownRenderer?: MarkdownRenderer) {
+        this.appConfig = appConfig;
+        this.config = {
+            maxContextSize: config.maxContextSize || DEFAULT_CONFIG.maxContextSize,
+            chunkSize: config.chunkSize || DEFAULT_CONFIG.chunkSize,
+            preferredProvider: config.preferredProvider || DEFAULT_CONFIG.preferredProvider,
+            taskType: config.taskType || DEFAULT_CONFIG.taskType,
+            debug: config.debug || false
+        };
+        this.markdownRenderer = markdownRenderer;
     }
-    try {
-      // Check if we have a task-specific provider configuration
-      const taskType = this.config.taskType || 'default';
-      const taskPlanningConfig = this.appConfig.taskPlanning;
 
-      if (taskPlanningConfig?.providerConfig && taskPlanningConfig.providerConfig[taskType]) {
-        // Use the provider specified for this task type
-        const providerConfig = taskPlanningConfig.providerConfig[taskType];
-        this.llm = LLMFactory.createLLMByProvider(
-          this.appConfig,
-          providerConfig.provider,
-          providerConfig.model
-        );
-      }
-      // Fallback to preferredProvider if specified and no task-specific provider is found
-      else if (this.config.preferredProvider || taskPlanningConfig?.preferredProvider) {
-        const preferredProvider = this.config.preferredProvider || taskPlanningConfig?.preferredProvider;
-        if (preferredProvider) {
-          this.llm = LLMFactory.createLLMByProvider(this.appConfig, preferredProvider);
-        } else {
-          // Use the best available LLM as a last resort
-          this.llm = await LLMFactory.getBestLLM(this.appConfig);
+    /**
+     * Initializes the LLM
+     * @returns A promise that resolves when the LLM is initialized
+     */
+    async initialize(): Promise<BaseLLM> {
+        if (this.llm) {
+            return this.llm;
         }
-      } else {
-        // Use the best available LLM
-        this.llm = await LLMFactory.getBestLLM(this.appConfig);
-      }
+        try {
+            // Check if we have a task-specific provider configuration
+            const taskType = this.config.taskType || 'default';
+            const taskPlanningConfig = this.appConfig.taskPlanning;
 
-      await this.llm.initialize();
+            if (taskPlanningConfig?.providerConfig && taskPlanningConfig.providerConfig[taskType]) {
+                // Use the provider specified for this task type
+                const providerConfig = taskPlanningConfig.providerConfig[taskType];
+                this.llm = LLMFactory.createLLMByProvider(
+                    this.appConfig,
+                    providerConfig.provider,
+                    providerConfig.model
+                );
+            }
+            // Fallback to preferredProvider if specified and no task-specific provider is found
+            else if (this.config.preferredProvider || taskPlanningConfig?.preferredProvider) {
+                const preferredProvider = this.config.preferredProvider || taskPlanningConfig?.preferredProvider;
+                if (preferredProvider) {
+                    this.llm = LLMFactory.createLLMByProvider(this.appConfig, preferredProvider);
+                } else {
+                    // Use the best available LLM as a last resort
+                    this.llm = await LLMFactory.getBestLLM(this.appConfig);
+                }
+            } else {
+                // Use the best available LLM
+                this.llm = await LLMFactory.getBestLLM(this.appConfig);
+            }
 
-      return await this.llm;
-    } catch (error) {
-      throw new Error(`Failed to initialize LLM: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
+            await this.llm.initialize();
 
-  async createContextProfile(
-    projectRoot: string,
-    currentDirectory: string
-  ): Promise<ContextProfile> {
-    return FileSystemUtils.createContextProfile(projectRoot, currentDirectory);
-  }
-
-  /**
-   * Creates a task plan for a user request
-   * @param request - The user request
-   * @param contextProfile - The context profile
-   * @returns A task plan
-   */
-  async createTaskPlan(
-    request: string,
-    contextProfile: ContextProfile
-  ): Promise<TaskPlan> {
-    // 1. Initialize LLM if not already initialized
-    if (!this.llm) {
-      await this.initialize();
-    }
-
-    if (!this.llm) {
-      throw new Error('Failed to initialize LLM for task planning');
-    }
-
-    const readFileTool = new ReadFileTool(contextProfile.projectRoot);
-    const listFilesTool = new ListFilesTool(contextProfile.projectRoot);
-    const extractPlanTool = new StorePlanTool();
-    const askUserTool = new AskUserTool();
-    // todo: add config for trusted commands
-    const runProcessTool = new RunProcessTool({
-      trustedCommands: [],
-    }, async command => {
-      const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
-        {
-          type: 'list',
-          name: 'confirmation',
-          message: `Do you allow to run "${command}"?`,
-          choices: ['Yes', 'No'],
-          default: 'Yes'
+            return this.llm;
+        } catch (error) {
+            throw new Error(`Failed to initialize LLM: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-      ]);
-
-      return confirmation === 'Yes';
-    })
-
-    // Create AskModelTool if enabled in config
-    let askModelTool: AskModelTool | null = null;
-    if (this.appConfig.askModel?.enabled) {
-      askModelTool = new AskModelTool(contextProfile.projectRoot, this.appConfig);
     }
 
-    const tools: BaseTool[] = [
-      listFilesTool,
-      extractPlanTool,
-      askUserTool,
-    ];
-
-    // Add AskModelTool if enabled
-    if (askModelTool) {
-      tools.push(askModelTool);
-    } else {
-      tools.push(readFileTool);
+    async createContextProfile(
+        projectRoot: string,
+        currentDirectory: string
+    ): Promise<ContextProfile> {
+        return FileSystemUtils.createContextProfile(projectRoot, currentDirectory);
     }
 
-    // Get directory structure
-    let filesStructure = 'Could not retrieve directory structure.'; // Default message
-    try {
-      // Use the existing listDirsTool instance
-      // Note: Assuming ListDirectoriesTool has similar parameters to ListFilesTool
-      // We'll request directories only, up to depth 4
-      filesStructure = await listFilesTool.execute({ directory: '.', depth: 4 });
-    } catch (error) {
-      console.warn(`[LLMPlanner] Failed to get directory structure: ${error instanceof Error ? error.message : String(error)}`);
+    async createTaskPlan(
+        request: string,
+        contextProfile: ContextProfile
+    ): Promise<TaskPlan> {
+        // 1. Initialize LLM if not already initialized
+        if (!this.llm) {
+            await this.initialize();
+        }
+
+        if (!this.llm) {
+            throw new Error('Failed to initialize LLM for task planning');
+        }
+        const { listFilesTool, extractPlanTool, tools } = this.getTools(contextProfile);
+
+        // Get directory structure
+        let filesStructure = 'Could not retrieve directory structure.'; // Default message
+        try {
+            // Use the existing listDirsTool instance
+            // Note: Assuming ListDirectoriesTool has similar parameters to ListFilesTool
+            // We'll request directories only, up to depth 4
+            filesStructure = await listFilesTool.execute({ directory: '.', depth: 4 });
+        } catch (error) {
+            console.warn(`[LLMPlanner] Failed to get directory structure: ${error instanceof Error ? error.message : String(error)}`);
+        }
+
+        let contextString = contextProfile.createContextString();
+        const prompt = this.getPrompt(contextProfile, filesStructure, contextString);
+
+        // 4. Generate task plan using LLM with tools
+        try {
+            // Generate response using the regular LLM with streaming callback for rendering responses
+            const response = await this.llm.generate(prompt, request, {
+                tools,
+                onTokenStream: (token: string) => {
+                    // If markdown renderer is available, render the token
+                    if (this.markdownRenderer) {
+                        process.stdout.write(this.markdownRenderer.render(token));
+                    } else {
+                        process.stdout.write(token);
+                    }
+                }
+            });
+
+            // Get the saved plan from the tool
+            const savedPlan = extractPlanTool.getSavedPlan();
+
+            if (!savedPlan) {
+                throw new Error(`No plan was saved by the LLM. Got response ${response}. Make sure the LLM is using the extract_plan tool correctly.`);
+            }
+
+            // Transform the saved plan into a TaskPlan
+            const subtasks: Subtask[] = savedPlan.subtasks.map((subtask) => {
+                // Generate ID if not provided
+                const id = subtask.id || uuidv4();
+
+                // Validate complexity
+                const complexity = this.validateComplexityLevel(subtask.complexity || 'medium');
+
+                // Validate dependencies
+                const dependencies = Array.isArray(subtask.dependencies) ? subtask.dependencies : [];
+
+                // Select LLM type based on complexity
+                const llmType = this.selectLLMTypeByComplexity(complexity);
+
+                // Include files_to_read if provided
+                const filesToRead = Array.isArray(subtask.filesToRead) ? subtask.filesToRead : [];
+
+                return {
+                    id,
+                    taskSpecification: subtask.taskSpecification || 'No spec provided',
+                    complexity,
+                    llmType,
+                    dependencies,
+                    filesToRead
+                };
+            });
+
+            // Validate execution order
+            const executionOrder = savedPlan.executionOrder?.filter((id: string) =>
+                subtasks.some(subtask => subtask.id === id)
+            ) || [];
+
+            // If execution order is empty, create a default one
+            if (executionOrder.length === 0) {
+                subtasks.forEach(subtask => executionOrder.push(subtask.id));
+            }
+
+            // Determine overall complexity
+            const overallComplexity = savedPlan.overallComplexity || this.determineOverallComplexity(subtasks);
+
+            return {
+                originalRequest: request,
+                overallComplexity,
+                subtasks,
+                executionOrder,
+                validationInstructions: savedPlan.validationInstructions
+            };
+        } catch (error) {
+            console.error(`Error generating task plan with LLM: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+            // Fallback to a simple task plan
+            const subtask: Subtask = {
+                id: uuidv4(),
+                taskSpecification: request,
+                complexity: ComplexityLevel.MEDIUM,
+                llmType: LLMType.REMOTE,
+                dependencies: []
+            };
+
+            return {
+                originalRequest: request,
+                overallComplexity: ComplexityLevel.MEDIUM,
+                subtasks: [subtask],
+                executionOrder: [subtask.id],
+                validationInstructions: "Run basic tests to verify the implementation works as expected."
+            };
+        }
     }
 
-    let contextString = contextProfile.createContextString();
-    const prompt = `
-You are a task planning assistant. Your job is to analyze a user request and create a detailed, executable plan to accomplish their goal.
+    private getPrompt(contextProfile: ContextProfile, filesStructure: string, contextString: string) {
+        return `
+You are a task planning assistant. Your job is to analyze a user request and create a detailed, executable plan to accomplish their goal. Count that plan execution will be automated, without user involvement or intervention.
 
 PROJECT CONTEXT:
 Current Directory: ${contextProfile.currentDirectory}
@@ -204,14 +253,20 @@ If you need clarification from the user, use the "ask_user" tool to ask specific
 - The request is ambiguous or lacks necessary details
 - You need to confirm your understanding of requirements
 - You need to gather preferences about implementation approaches
-
-If the "ask_model" tool is available, you can use it to delegate analysis tasks to a smaller model. This is useful for:
-- Analyzing file content and providing summaries
+${this.appConfig?.askModel?.enabled ? `
+If the "delegate_analysis_to_model" tool is available, you can use it to delegate analysis tasks to a smaller model. This is useful for:
+- Analyzing file content, or its dependencies and providing summaries
 - Extracting specific information from files
 - Generating code snippets or suggestions based on existing code
 - Reducing the cost of the task execution by using a cheaper model for simpler subtasks
+- Please think on all analysis you need to make a good planning and call this tool with maximum tasks at once, rather then calling it one to one. Better to ask to analyze more during one tool call, than call it 10 times one by one.
+Prefer to supply multiple files as input to the "delegate_analysis_to_model" tool and multiple queries. Queries will be executed one by one internally, so no quality decrease expected.
 
-To use the "ask_model" tool, provide an array of file paths and a query with questions or tasks. The model will read the files and respond to the query.
+Example of good tool call:
+"queries": [ "Analyze file x  if it is do Y. If it does not find all the dependencies to and make analysis where Y is done and these questions", "Analyze files to understand if they are doing Y and find error Z" ]
+
+To use the "delegate_analysis_to_model" tool, provide an array of file paths and a query with questions or tasks. The model will read the files and respond to the query.
+`: ''}
 
 ## TASK DECOMPOSITION PHASE
 
@@ -284,218 +339,166 @@ ALWAYS call "store_plan" tool at the end of context gathering. Make sure to incl
 
 After the plan is saved successfully, provide a concise summary of your understanding of the task and the approach you've outlined.
 `;
+    }
 
-    // 4. Generate task plan using LLM with tools
-    try {
-      // Generate response using the regular LLM with streaming callback for rendering responses
-      const response = await this.llm.generate(prompt, request, {
-        tools,
-        onTokenStream: (token: string) => {
-          // If markdown renderer is available, render the token
-          if (this.markdownRenderer) {
-            process.stdout.write(this.markdownRenderer.render(token));
-          } else {
-            process.stdout.write(token);
-          }
+    private getTools(contextProfile: ContextProfile) {
+        const readFileTool = new ReadFileTool(contextProfile.projectRoot);
+        const listFilesTool = new ListFilesTool(contextProfile.projectRoot);
+        const extractPlanTool = new StorePlanTool();
+        const askUserTool = new AskUserTool();
+        // todo: add config for trusted commands
+        // const runProcessTool = new RunProcessTool({
+        //     trustedCommands: [],
+        // }, async command => {
+        //     const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
+        //         {
+        //             type: 'list',
+        //             name: 'confirmation',
+        //             message: `Do you allow to run "${command}"?`,
+        //             choices: ['Yes', 'No'],
+        //             default: 'Yes'
+        //         }
+        //     ]);
+        //
+        //     return confirmation === 'Yes';
+        // })
+
+        // Create AskModelTool if enabled in config
+        let askModelTool: AskModelTool | null = null;
+        if (this.appConfig.askModel?.enabled) {
+            askModelTool = new AskModelTool(contextProfile.projectRoot, this.appConfig);
         }
-      });
 
-      // Get the saved plan from the tool
-      const savedPlan = extractPlanTool.getSavedPlan();
+        const tools: BaseTool[] = [
+            listFilesTool,
+            extractPlanTool,
+            askUserTool,
+        ];
 
-      if (!savedPlan) {
-        throw new Error(`No plan was saved by the LLM. Got response ${response}. Make sure the LLM is using the extract_plan tool correctly.`);
-      }
+        // Add AskModelTool if enabled
+        if (askModelTool) {
+            tools.push(askModelTool);
+        } else {
+            tools.push(readFileTool);
+        }
+        return { listFilesTool, extractPlanTool, tools };
+    }
 
-      // Transform the saved plan into a TaskPlan
-      const subtasks: Subtask[] = savedPlan.subtasks.map((subtask) => {
-        // Generate ID if not provided
-        const id = subtask.id || uuidv4();
+    private validateComplexityLevel(level: string): ComplexityLevel {
+        level = level.toLowerCase();
+        if (level === 'low' || level === ComplexityLevel.LOW) {
+            return ComplexityLevel.LOW;
+        } else if (level === 'medium' || level === ComplexityLevel.MEDIUM) {
+            return ComplexityLevel.MEDIUM;
+        } else if (level === 'high' || level === ComplexityLevel.HIGH) {
+            return ComplexityLevel.HIGH;
+        }
+        return ComplexityLevel.MEDIUM; // Default to medium if invalid
+    }
 
-        // Validate complexity
-        const complexity = this.validateComplexityLevel(subtask.complexity || 'medium');
+    /**
+     * Selects an LLM type based on complexity
+     * @param complexity - The complexity level
+     * @returns The LLM type
+     */
+    private selectLLMTypeByComplexity(complexity: ComplexityLevel): LLMType {
+        if (complexity === ComplexityLevel.HIGH) {
+            return LLMType.REMOTE;
+        } else if (complexity === ComplexityLevel.LOW) {
+            return LLMType.LOCAL;
+        }
+        return LLMType.HYBRID;
+    }
 
-        // Validate dependencies
-        const dependencies = Array.isArray(subtask.dependencies) ? subtask.dependencies : [];
-
-        // Select LLM type based on complexity
-        const llmType = this.selectLLMTypeByComplexity(complexity);
-
-        // Include files_to_read if provided
-        const filesToRead = Array.isArray(subtask.filesToRead) ? subtask.filesToRead : [];
-
-        return {
-          id,
-          taskSpecification: subtask.taskSpecification || 'No spec provided',
-          complexity,
-          llmType,
-          dependencies,
-          filesToRead
+    /**
+     * Determines the overall complexity of a task plan
+     * @param subtasks - The subtasks
+     * @returns The overall complexity
+     */
+    private determineOverallComplexity(subtasks: Subtask[]): ComplexityLevel {
+        // Count the number of subtasks with each complexity level
+        const complexityCounts = {
+            [ComplexityLevel.LOW]: 0,
+            [ComplexityLevel.MEDIUM]: 0,
+            [ComplexityLevel.HIGH]: 0
         };
-      });
 
-      // Validate execution order
-      const executionOrder = savedPlan.executionOrder?.filter((id: string) =>
-        subtasks.some(subtask => subtask.id === id)
-      ) || [];
-
-      // If execution order is empty, create a default one
-      if (executionOrder.length === 0) {
-        subtasks.forEach(subtask => executionOrder.push(subtask.id));
-      }
-
-      // Determine overall complexity
-      const overallComplexity = savedPlan.overallComplexity || this.determineOverallComplexity(subtasks);
-
-      return {
-        originalRequest: request,
-        overallComplexity,
-        subtasks,
-        executionOrder,
-        validationInstructions: savedPlan.validationInstructions
-      };
-    } catch (error) {
-      console.error(`Error generating task plan with LLM: ${error instanceof Error ? error.message : 'Unknown error'}`);
-
-      // Fallback to a simple task plan
-      const subtask: Subtask = {
-        id: uuidv4(),
-        taskSpecification: request,
-        complexity: ComplexityLevel.MEDIUM,
-        llmType: LLMType.REMOTE,
-        dependencies: []
-      };
-
-      return {
-        originalRequest: request,
-        overallComplexity: ComplexityLevel.MEDIUM,
-        subtasks: [subtask],
-        executionOrder: [subtask.id],
-        validationInstructions: "Run basic tests to verify the implementation works as expected."
-      };
-    }
-  }
-
-  /**
-   * Validates a complexity level string
-   * @param level - The complexity level string
-   * @returns A valid complexity level
-   */
-  private validateComplexityLevel(level: string): ComplexityLevel {
-    level = level.toLowerCase();
-    if (level === 'low' || level === ComplexityLevel.LOW) {
-      return ComplexityLevel.LOW;
-    } else if (level === 'medium' || level === ComplexityLevel.MEDIUM) {
-      return ComplexityLevel.MEDIUM;
-    } else if (level === 'high' || level === ComplexityLevel.HIGH) {
-      return ComplexityLevel.HIGH;
-    }
-    return ComplexityLevel.MEDIUM; // Default to medium if invalid
-  }
-
-  /**
-   * Selects an LLM type based on complexity
-   * @param complexity - The complexity level
-   * @returns The LLM type
-   */
-  private selectLLMTypeByComplexity(complexity: ComplexityLevel): LLMType {
-    if (complexity === ComplexityLevel.HIGH) {
-      return LLMType.REMOTE;
-    } else if (complexity === ComplexityLevel.LOW) {
-      return LLMType.LOCAL;
-    }
-    return LLMType.HYBRID;
-  }
-
-  /**
-   * Determines the overall complexity of a task plan
-   * @param subtasks - The subtasks
-   * @returns The overall complexity
-   */
-  private determineOverallComplexity(subtasks: Subtask[]): ComplexityLevel {
-    // Count the number of subtasks with each complexity level
-    const complexityCounts = {
-      [ComplexityLevel.LOW]: 0,
-      [ComplexityLevel.MEDIUM]: 0,
-      [ComplexityLevel.HIGH]: 0
-    };
-
-    subtasks.forEach(subtask => {
-      complexityCounts[subtask.complexity]++;
-    });
-
-    // If there are any high complexity subtasks, the overall complexity is high
-    if (complexityCounts[ComplexityLevel.HIGH] > 0) {
-      return ComplexityLevel.HIGH;
-    }
-
-    // If there are more medium complexity subtasks than low, the overall complexity is medium
-    if (complexityCounts[ComplexityLevel.MEDIUM] >= complexityCounts[ComplexityLevel.LOW]) {
-      return ComplexityLevel.MEDIUM;
-    }
-
-    // Otherwise, the overall complexity is low
-    return ComplexityLevel.LOW;
-  }
-
-  /**
-   * Gets the explanation for the task plan
-   * @param taskPlan - The task plan
-   * @returns An explanation string
-   */
-  getExplanation(taskPlan: TaskPlan): string {
-    let explanation = `# Task Planning Report\n\n`;
-
-    // Add task decomposition explanation
-    explanation += `## Task Decomposition\n\n`;
-    explanation += `Task decomposed into ${taskPlan.subtasks.length} subtasks based on ${taskPlan.overallComplexity.toUpperCase()} complexity level.\n\n`;
-
-    // Add subtasks explanation
-    explanation += `## Subtasks\n\n`;
-    taskPlan.subtasks.forEach((subtask, index) => {
-      explanation += `### ${index + 1}. ${subtask.taskSpecification}\n`;
-      explanation += `- Complexity: ${subtask.complexity.toUpperCase()}\n`;
-      explanation += `- LLM Strategy: ${subtask.llmType.toUpperCase()}\n`;
-
-      if (subtask.dependencies.length > 0) {
-        const dependencyIndices = subtask.dependencies.map(depId => {
-          const depIndex = taskPlan.subtasks.findIndex(s => s.id === depId);
-          return depIndex !== -1 ? depIndex + 1 : '?';
+        subtasks.forEach(subtask => {
+            complexityCounts[subtask.complexity]++;
         });
 
-        explanation += `- Dependencies: ${dependencyIndices.join(', ')}\n`;
-      }
+        // If there are any high complexity subtasks, the overall complexity is high
+        if (complexityCounts[ComplexityLevel.HIGH] > 0) {
+            return ComplexityLevel.HIGH;
+        }
 
-      if (subtask.filesToRead && subtask.filesToRead.length > 0) {
-        explanation += `- Files to Read:\n`;
-        subtask.filesToRead.forEach(file => {
-          explanation += `  - ${file.path} (${file.syntax})\n`;
+        // If there are more medium complexity subtasks than low, the overall complexity is medium
+        if (complexityCounts[ComplexityLevel.MEDIUM] >= complexityCounts[ComplexityLevel.LOW]) {
+            return ComplexityLevel.MEDIUM;
+        }
+
+        // Otherwise, the overall complexity is low
+        return ComplexityLevel.LOW;
+    }
+
+    /**
+     * Gets the explanation for the task plan
+     * @param taskPlan - The task plan
+     * @returns An explanation string
+     */
+    getExplanation(taskPlan: TaskPlan): string {
+        let explanation = `# Task Planning Report\n\n`;
+
+        // Add task decomposition explanation
+        explanation += `## Task Decomposition\n\n`;
+        explanation += `Task decomposed into ${taskPlan.subtasks.length} subtasks based on ${taskPlan.overallComplexity.toUpperCase()} complexity level.\n\n`;
+
+        // Add subtasks explanation
+        explanation += `## Subtasks\n\n`;
+        taskPlan.subtasks.forEach((subtask, index) => {
+            explanation += `### ${index + 1}. ${subtask.taskSpecification}\n`;
+            explanation += `- Complexity: ${subtask.complexity.toUpperCase()}\n`;
+            explanation += `- LLM Strategy: ${subtask.llmType.toUpperCase()}\n`;
+
+            if (subtask.dependencies.length > 0) {
+                const dependencyIndices = subtask.dependencies.map(depId => {
+                    const depIndex = taskPlan.subtasks.findIndex(s => s.id === depId);
+                    return depIndex !== -1 ? depIndex + 1 : '?';
+                });
+
+                explanation += `- Dependencies: ${dependencyIndices.join(', ')}\n`;
+            }
+
+            if (subtask.filesToRead && subtask.filesToRead.length > 0) {
+                explanation += `- Files to Read:\n`;
+                subtask.filesToRead.forEach(file => {
+                    explanation += `  - ${file.path} (${file.syntax})\n`;
+                });
+            }
+
+            explanation += `\n`;
         });
-      }
 
-      explanation += `\n`;
-    });
+        // Add execution order explanation
+        explanation += `## Execution Order\n\n`;
+        const executionOrderIndices = taskPlan.executionOrder.map(id => {
+            const index = taskPlan.subtasks.findIndex(s => s.id === id);
+            return index !== -1 ? index + 1 : '?';
+        });
 
-    // Add execution order explanation
-    explanation += `## Execution Order\n\n`;
-    const executionOrderIndices = taskPlan.executionOrder.map(id => {
-      const index = taskPlan.subtasks.findIndex(s => s.id === id);
-      return index !== -1 ? index + 1 : '?';
-    });
+        explanation += `${executionOrderIndices.join(' → ')}\n\n`;
 
-    explanation += `${executionOrderIndices.join(' → ')}\n\n`;
+        // Add validation instructions if available
+        if (taskPlan.validationInstructions) {
+            explanation += `## Validation Instructions\n\n`;
+            explanation += `${taskPlan.validationInstructions}\n\n`;
+        }
 
-    // Add validation instructions if available
-    if (taskPlan.validationInstructions) {
-      explanation += `## Validation Instructions\n\n`;
-      explanation += `${taskPlan.validationInstructions}\n\n`;
+        // If markdown renderer is available, use it to render the explanation
+        if (this.markdownRenderer) {
+            return this.markdownRenderer.render(explanation);
+        }
+
+        return explanation;
     }
-
-    // If markdown renderer is available, use it to render the explanation
-    if (this.markdownRenderer) {
-      return this.markdownRenderer.render(explanation);
-    }
-
-    return explanation;
-  }
 }

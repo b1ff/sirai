@@ -45,7 +45,7 @@ ${projectContextString}
 1. READ the task specification completely before beginning implementation
 2. ADHERE strictly to any file paths, module names, and interface definitions provided
 3. IMPLEMENT code consistent with the existing project patterns and styles using provided tools
-4. PROVIDE implementation details in the specified format after completing the task
+4. PROVIDE implementation details in the last message after completing the task
 
 ## IMPLEMENTATION GUIDELINES
 - USE the provided file system tools to write, or modify files. Prefer batch modifications within one tool call when possible
@@ -55,97 +55,11 @@ ${projectContextString}
 - IF parts of the specification are ambiguous, make your best judgment based on the context provided and note your assumptions
 
 ## IMPLEMENTATION DETAILS FORMAT
-After completing the task, provide implementation details in the following format:
-
-\`\`\`markdown
-## Implementation Details
-
-### Modified/Created Files
-- /path/to/file1 - Brief description of changes
-- /path/to/file2 - Brief description of changes
-
-### Public Interfaces
-\`\`\`typescript
-// Document any new or modified public interfaces
-// Include method signatures and types
-\`\`\`
-
-### Additional Context
-- Important implementation details
-- Dependencies or configurations added
-- Patterns or approaches used
-- Information needed for future tasks
-\`\`\`
-
-These details will be used by dependent tasks, so be thorough and precise.
+After completing the task, provide implementation details in the last message. The details should include a clear description of what was implemented and any important details for dependent tasks
 `;
   }
 
-  private parseImplementationDetails(response: string): ImplementationDetails | undefined {
-    try {
-      const modifiedFilesMatch = response.match(/### Modified\/Created Files\n([\s\S]*?)(?=###|$)/);
-      const publicInterfacesMatch = response.match(/### Public Interfaces\n\`\`\`typescript\n([\s\S]*?)\`\`\`/);
-      const additionalContextMatch = response.match(/### Additional Context\n([\s\S]*?)(?=```|$)/);
-
-      if (!modifiedFilesMatch && !publicInterfacesMatch && !additionalContextMatch) {
-        return undefined;
-      }
-
-      const implementationDetails: ImplementationDetails = {
-        modifiedFiles: [],
-        publicInterfaces: [],
-        additionalContext: []
-      };
-
-      if (modifiedFilesMatch) {
-        const filesText = modifiedFilesMatch[1];
-        implementationDetails.modifiedFiles = filesText
-          .split('\n')
-          .filter(line => line.trim().startsWith('-'))
-          .map(line => {
-            const [path, ...description] = line.replace('-', '').trim().split(' - ');
-            return {
-              path: path.trim(),
-              description: description.join(' - ').trim()
-            };
-          });
-      }
-
-      if (publicInterfacesMatch) {
-        const interfacesText = publicInterfacesMatch[1];
-        // Simple parsing of interfaces - can be enhanced based on needs
-        implementationDetails.publicInterfaces = interfacesText
-          .split('\n')
-          .filter(line => line.trim() && !line.trim().startsWith('//'))
-          .map(line => ({
-            name: line.split('(')[0].trim(),
-            type: 'interface',
-            signature: line.trim()
-          }));
-      }
-
-      if (additionalContextMatch) {
-        const contextText = additionalContextMatch[1];
-        implementationDetails.additionalContext = contextText
-          .split('\n')
-          .filter(line => line.trim().startsWith('-'))
-          .map(line => {
-            const [key, ...value] = line.replace('-', '').trim().split(':');
-            return {
-              key: key.trim(),
-              value: value.join(':').trim()
-            };
-          });
-      }
-
-      return implementationDetails;
-    } catch (error) {
-      console.error('Error parsing implementation details:', error);
-      return undefined;
-    }
-  }
-
-  public async executeTask(prompt: string, userInput: string, llm: BaseLLM): Promise<boolean> {
+  public async executeTask(prompt: string, userInput: string, llm: BaseLLM, taskId: string): Promise<{ success: boolean; implementationDetails: ImplementationDetails }> {
     console.log(chalk.blue('\nExecuting task...'));
 
     // Display provider and model information
@@ -184,13 +98,24 @@ These details will be used by dependent tasks, so be thorough and precise.
       console.log(chalk.blue('\nAssistant:'));
       process.stdout.write(this.markdownRenderer.render(response));
 
-      // Parse and return implementation details
-      const implementationDetails = this.parseImplementationDetails(response);
-      return implementationDetails !== undefined;
+      // Return success and the response as implementation details
+      return { 
+        success: true, 
+        implementationDetails: {
+          taskid: taskId,
+          content: response
+        }
+      };
     } catch (error) {
       spinner.stop();
       console.error(chalk.red(`Error executing task: ${error instanceof Error ? error.message : 'Unknown error'}`));
-      return false;
+      return { 
+        success: false, 
+        implementationDetails: {
+          taskid: taskId,
+          content: ''
+        }
+      };
     }
   }
 
@@ -240,7 +165,7 @@ These details will be used by dependent tasks, so be thorough and precise.
         dependencyDetails = dependencyTasks
           .map(task => {
             if (task.implementationDetails) {
-              return `## Implementation Details from Dependency: ${task.id}\n${JSON.stringify(task.implementationDetails, null, 2)}`;
+              return `## Implementation Details from Dependency: ${task.id}\n${task.implementationDetails.content}`;
             }
             return '';
           })
@@ -254,13 +179,16 @@ These details will be used by dependent tasks, so be thorough and precise.
       let success = false;
       let retryCount = 0;
       const maxRetries = 5;
+      let implementationDetails: ImplementationDetails = { taskid: subtask.id, content: '' };
 
       while (!success && retryCount < maxRetries) {
         if (retryCount > 0) {
           console.log(chalk.yellow(`Retrying task ${i + 1}/${orderedSubtasks.length} (Attempt ${retryCount + 1}/${maxRetries})...`));
         }
 
-        success = await this.executeTask(taskPrompt, userInput, llm);
+        const result = await this.executeTask(taskPrompt, userInput, llm, subtask.id);
+        success = result.success;
+        implementationDetails = result.implementationDetails;
 
         if (!success) {
           retryCount++;
@@ -275,6 +203,9 @@ These details will be used by dependent tasks, so be thorough and precise.
         subtask.status = TaskStatus.FAILED;
         return false;
       }
+
+      // Store implementation details in the subtask
+      subtask.implementationDetails = implementationDetails;
 
       // Mark subtask as COMPLETED and add to history
       subtask.status = TaskStatus.COMPLETED;

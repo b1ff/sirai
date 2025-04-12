@@ -70,19 +70,8 @@ export interface FileToRead {
  * Interface for storing implementation details of a task
  */
 export interface ImplementationDetails {
-  modifiedFiles: {
-    path: string;
-    description: string;
-  }[];
-  publicInterfaces: {
-    name: string;
-    type: string;
-    signature: string;
-  }[];
-  additionalContext: {
-    key: string;
-    value: string;
-  }[];
+  taskid: string;
+  content: string;
 }
 
 /**

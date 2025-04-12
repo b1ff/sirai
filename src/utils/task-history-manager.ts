@@ -168,7 +168,7 @@ export class TaskHistoryManager {
   getAllImplementationDetails(): Map<string, ImplementationDetails> {
     const tasks = this.loadHistory();
     const detailsMap = new Map<string, ImplementationDetails>();
-    
+
     tasks.forEach(task => {
       task.subtasks.forEach(subtask => {
         if (subtask.implementationDetails) {
@@ -176,41 +176,7 @@ export class TaskHistoryManager {
         }
       });
     });
-    
-    return detailsMap;
-  }
 
-  /**
-   * Gets a summary of implementation details for completed tasks
-   * @returns A string summary of implementation details
-   */
-  getImplementationDetailsSummary(): string {
-    const tasks = this.loadHistory();
-    
-    if (tasks.length === 0) {
-      return "No implementation details found.";
-    }
-    
-    const summary = tasks.map((task, index) => {
-      const date = task.completedAt 
-        ? new Date(task.completedAt).toLocaleString() 
-        : 'Unknown date';
-      
-      const subtaskDetails = task.subtasks
-        .filter(st => st.implementationDetails)
-        .map(st => {
-          const details = st.implementationDetails!;
-          return `  - ${st.id}:
-    Modified Files: ${details.modifiedFiles.length}
-    Public Interfaces: ${details.publicInterfaces.length}
-    Additional Context Items: ${details.additionalContext.length}`;
-        })
-        .join('\n');
-      
-      return `${index + 1}. ${task.originalRequest.substring(0, 100)}${task.originalRequest.length > 100 ? '...' : ''} (${date})
-${subtaskDetails}`;
-    }).join('\n\n');
-    
-    return `Implementation Details Summary (${tasks.length} tasks):\n${summary}`;
+    return detailsMap;
   }
 }
