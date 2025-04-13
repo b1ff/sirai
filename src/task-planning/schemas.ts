@@ -54,7 +54,7 @@ export interface ComplexityAssessmentResult {
 
 export interface FileToRead {
   path: string;
-  syntax: string;
+  syntax?: string;
 }
 
 export interface ImplementationDetails {

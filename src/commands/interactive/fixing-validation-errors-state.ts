@@ -110,15 +110,6 @@ export class FixingValidationErrorsState implements State {
             console.log(validationResult.suggestedFixes);
         }
     }
-
-    private buildRegenerationFeedback(validationResult: any, taskPlan: any): string {
-        return `Please fix the following issues with the previous task execution:\n\n` +
-            `${validationResult.message}\n\n` +
-            (validationResult.suggestedFixes ?
-                `Suggested fixes: ${validationResult.suggestedFixes}\n\n` : '') +
-            `Original request: ${taskPlan.originalRequest}`;
-    }
-
     private buildFixPrompt(validationResult: any, taskPlan: any): string {
         let prompt = `Title: Fix Validation Errors in Task Implementation
 

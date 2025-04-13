@@ -19,8 +19,8 @@ export interface TokenLimitConfig {
  * Class for preparing file sources for LLM consumption
  */
 export class FileSourceLlmPreparation {
-  private files: FileToRead[];
-  private projectDir: string;
+  private readonly files: FileToRead[];
+  private readonly projectDir: string;
   private tokenLimitConfig?: TokenLimitConfig;
 
   /**
@@ -62,14 +62,6 @@ export class FileSourceLlmPreparation {
     return lines.map((line, index) => `${index + 1}:${line}`).join('\n');
   }
 
-  /**
-   * Truncates content to fit within token limits
-   * @param content - The content to truncate
-   * @param maxTokens - Maximum number of tokens allowed
-   * @param filePath - The file path (for warning messages)
-   * @returns The truncated content and whether truncation occurred
-   * @private
-   */
   private truncateContent(content: string, maxTokens: number, filePath: string): { content: string; truncated: boolean } {
     const tokenCount = estimateTokenCount(content);
     
@@ -112,7 +104,7 @@ export class FileSourceLlmPreparation {
           try {
             const content = await this.readFileContent(file.path);
             const processedContent = withLineNumbers ? this.addLineNumbers(content) : content;
-            const fileWrapper = `<file path="${file.path}" syntax="${file.syntax}">\n${processedContent}\n</file>\n`;
+            const fileWrapper = this.wrapFile(file, processedContent) + `\n`;
             const tokenCount = estimateTokenCount(fileWrapper);
             
             return {
@@ -133,8 +125,7 @@ export class FileSourceLlmPreparation {
       
       // If token limit is specified, apply it
       if (maxTokens) {
-        const availableTokens = maxTokens - reserveTokens;
-        let remainingTokens = availableTokens;
+        let remainingTokens = maxTokens - reserveTokens;
         
         // Second pass: add files respecting token limits
         for (const data of validFileData) {
@@ -147,8 +138,9 @@ export class FileSourceLlmPreparation {
             totalTokens += data.tokenCount;
           } else if (remainingTokens > 0) {
             // File needs truncation
-            const wrapper = (content: string) => 
-              `<file path="${data.file.path}" syntax="${data.file.syntax}">\n${content}\n</file>\n`;
+            let currFile = data.file;
+            const wrapper = (content: string) =>
+              `${this.wrapFile(currFile, content)}\n`;
             
             // Account for wrapper tokens
             const wrapperTokens = estimateTokenCount(wrapper(''));
@@ -158,7 +150,7 @@ export class FileSourceLlmPreparation {
               const { content: truncatedContent } = this.truncateContent(
                 data.content, 
                 contentTokens,
-                data.file.path
+                currFile.path
               );
               
               fileContents += wrapper(truncatedContent);
@@ -189,5 +181,10 @@ export class FileSourceLlmPreparation {
     }
 
     return fileContents;
+  }
+
+  private wrapFile(currFile: FileToRead, content: string) {
+    const syntax = currFile.syntax ? ` syntax="${currFile.syntax}"` : '';
+    return `<file path="${currFile.path}"${syntax}>\n${content}\n</file>`;
   }
 }

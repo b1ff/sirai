@@ -4,10 +4,8 @@ import { streamText, generateText, generateObject } from 'ai';
 import { BaseVercelAIProvider } from './vercel-ai/base.js';
 import { VercelAIFactory } from './vercel-ai/factory.js';
 import { AITracer } from '../utils/tracer.js';
+import { LlmRequest } from './LlmRequest.js';
 
-/**
- * Adapter for Vercel AI SDK
- */
 export class VercelAIAdapter extends BaseLLM {
     private aiProvider: BaseVercelAIProvider;
 
@@ -25,17 +23,22 @@ export class VercelAIAdapter extends BaseLLM {
     }
 
     async generate(systemInstructions: string | undefined, userInput: string, options?: LLMOptions): Promise<string> {
+        return await this.generateInner(systemInstructions, userInput, options);
+    }
+
+    async generateFrom(req: LlmRequest): Promise<string> {
         try {
             // Trace the prompt
-            AITracer.getInstance().tracePrompt(systemInstructions, userInput);
+            AITracer.getInstance().tracePrompt(req.systemPromptText, req.promptText);
 
             // Use Vercel AI SDK generateText function
             const result = await generateText({
                 model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
-                prompt: userInput,
-                system: systemInstructions, // note that system instructions works very bad with local llms
                 toolChoice: 'auto',
-                ...this.aiProvider.adaptOptions(options),
+                ...this.aiProvider.adaptOptions({
+                    tools: req.toolsList
+                }),
+                messages: req.combinedMessages
             });
 
             this.trackInputTokens(result.usage.promptTokens);
@@ -50,6 +53,22 @@ export class VercelAIAdapter extends BaseLLM {
             AITracer.getInstance().traceError(e);
             throw e;
         }
+    }
+
+    private async generateInner(systemInstructions: string | undefined, userInput: string, options: LLMOptions | undefined) {
+        const req = new LlmRequest()
+            .withPrompt(userInput);
+        if (systemInstructions) {
+            req.withSystemPrompt(systemInstructions);
+        }
+
+        if (options?.tools) {
+            for (const tool of options.tools) {
+                req.withTool(tool);
+            }
+        }
+
+        return await this.generateFrom(req);
     }
 
     async generateStream(

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { BaseTool } from './tools/index.js';
 import { DEFAULT_PRICING_CONFIG } from '../config/config.js';
+import { LlmRequest } from './LlmRequest.js';
 
 /**
  * Interface for LLM configuration
@@ -43,32 +44,20 @@ export interface TokenUsage {
   cost: number;
 }
 
-/**
- * Base class for LLM providers
- */
 export abstract class BaseLLM {
   protected config: LLMConfig;
   public readonly provider: string;
   protected model: string;
   
-  // Token tracking properties
   protected inputTokens: number = 0;
   protected outputTokens: number = 0;
 
-  /**
-   * Constructor
-   * @param config - The LLM configuration
-   */
   constructor(config: LLMConfig) {
     this.config = config;
     this.provider = config.provider;
     this.model = config.model || '';
   }
 
-  /**
-   * Gets the provider and model information as a string
-   * @returns A string in the format "provider:model" or just "provider" if model info is not available
-   */
   getProviderWithModel(): string {
     return this.model ? `${this.provider}:${this.model}` : this.provider;
   }
@@ -78,6 +67,11 @@ export abstract class BaseLLM {
    */
   abstract initialize(): Promise<void>;
 
+  abstract generateFrom(request: LlmRequest): Promise<string>;
+
+  /**
+   * @deprecated use `generateFrom` method
+   */
   abstract generate(prompt: string | undefined, userRequest: string, options?: LLMOptions): Promise<string>;
 
   abstract generateStream(

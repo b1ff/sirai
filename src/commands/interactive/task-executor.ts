@@ -4,7 +4,7 @@ import inquirer from 'inquirer';
 import { BaseLLM } from '../../llm/base.js';
 import { MarkdownRenderer } from '../../utils/markdown-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
-import { WriteFileTool, PatchFileTool, ReadFileTool, BaseTool } from '../../llm/tools/index.js';
+import { WriteFileTool, PatchFileTool, ReadFileTool, BaseTool, ListFilesTool } from '../../llm/tools/index.js';
 import { Subtask, TaskPlan, ImplementationDetails } from '../../task-planning/schemas.js';
 import { TaskStatus } from '../interactive/task-types.js';
 import { TaskHistoryManager } from '../../utils/task-history-manager.js';
@@ -92,7 +92,9 @@ After completing the task, provide implementation details in the last message. T
       ];
 
       if (allowRead) {
-        tools.push(new ReadFileTool(projectDir))
+        tools.push(
+            new ListFilesTool(projectDir),
+            new ReadFileTool(projectDir));
       }
       const response = await llm.generate(undefined, `${prompt}\n<user_input>${userInput}</user_input>`, {
         tools: tools,

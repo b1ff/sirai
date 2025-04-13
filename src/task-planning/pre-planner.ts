@@ -2,10 +2,11 @@ import { BaseLLM } from '../llm/base.js';
 import { AppConfig, LLMFactory } from '../llm/factory.js';
 import { ContextProfile } from './schemas.js';
 import { MarkdownRenderer } from '../utils/markdown-renderer.js';
-import { BaseTool, ListFilesTool, ReadFileTool } from '../llm/tools/index.js';
+import { ListFilesTool, ReadFileTool } from '../llm/tools/index.js';
+import { LlmRequest } from '../llm/LlmRequest.js';
 
 export class PrePlanner {
-    private appConfig: AppConfig;
+    private readonly appConfig: AppConfig;
     private llm: BaseLLM | null = null;
     private markdownRenderer?: MarkdownRenderer;
 
@@ -44,7 +45,6 @@ export class PrePlanner {
     }
 
     async analyze(request: string, contextProfile: ContextProfile): Promise<string> {
-        // Initialize LLM if not already initialized
         if (!this.llm) {
             await this.initialize();
         }
@@ -53,29 +53,21 @@ export class PrePlanner {
             throw new Error('Failed to initialize LLM for pre-planning');
         }
 
-        // Get tools for pre-planning
-        const tools = this.getTools(contextProfile);
+        const llmRequest = this.addTools(new LlmRequest(), contextProfile);
 
-        // Get directory structure using FileSystemUtils
-        let filesStructure = 'Could not retrieve directory structure.';
-        try {
-            const listFilesTool = new ListFilesTool(contextProfile.projectRoot);
-            filesStructure = await listFilesTool.execute({ directory: '.', depth: 3 });
-        } catch (error) {
-            console.warn(`[PrePlanner] Failed to get directory structure: ${error instanceof Error ? error.message : String(error)}`);
-        }
-
-        // Create context string
+        const filesStructure = await this.getProjectInitialFileList(contextProfile);
         const contextString = contextProfile.createContextString();
-        
-        // Create prompt for pre-planning
-        const prompt = this.getPrompt(filesStructure, contextString);
 
-        // Generate pre-planning analysis
+        llmRequest
+            .withSystemPrompt(this.getSystemPrompt())
+            .withPrompt(this.getPrompt())
+            .withUserMessage(`PROJECT FILES: ${filesStructure}`)
+            .withUserMessage(`PROJECT CONTEXT: ${contextString}`)
+            .withUserMessage(`USER REQUEST: ${request}`)
+        ;
+
         try {
-            const response = await this.llm.generate(prompt, request, {
-                tools,
-            });
+            const response = await this.llm.generateFrom(llmRequest);
 
             console.log(`Pre-planning analysis generated for request: ${request}`);
             console.log(this.markdownRenderer?.render(response));
@@ -87,40 +79,43 @@ export class PrePlanner {
         }
     }
 
-    private getTools(contextProfile: ContextProfile): BaseTool[] {
-        return [
-            new ReadFileTool(contextProfile.projectRoot),
-            new ListFilesTool(contextProfile.projectRoot)
-        ];
+    private async getProjectInitialFileList(contextProfile: ContextProfile) {
+        let filesStructure = 'Could not retrieve directory structure.';
+        try {
+            const listFilesTool = new ListFilesTool(contextProfile.projectRoot);
+            filesStructure = await listFilesTool.execute({ directory: '.', depth: 3 });
+        } catch (error) {
+            console.warn(`[PrePlanner] Failed to get directory structure: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        return filesStructure;
     }
 
-    private getPrompt(filesStructure: string, contextString: string): string {
-        return `
-You are a task pre-planning assistant. Your job is to perform an initial analysis of a user request to help with the main planning phase.
+    private addTools(llmReq: LlmRequest, contextProfile: ContextProfile) {
+        return llmReq
+            .withTool(new ReadFileTool(contextProfile.projectRoot))
+            .withTool(new ListFilesTool(contextProfile.projectRoot));
+    }
+
+    private getSystemPrompt(): string {
+        return `You are a task pre-planning assistant. Your job is to perform an initial analysis of a user request to help with the main planning phase.
 You should focus on understanding the request, identifying key files, components, interfaces and critical code sections, and suggesting a high-level approach.
-Your goal is to reduce the amount of analysis needed for your teammate who will do the full analysis and implementation. You must provide specific files, locations, and code snippets when relevant.
+Your goal is to reduce the amount of analysis needed for your teammate who will do the full analysis and implementation. You must provide specific files, locations, and code snippets when relevant.`;
+    }
 
-## PROJECT CONTEXT
-${contextString}
-
-## DIRECTORY STRUCTURE
-${filesStructure}
-
+    private getPrompt(): string {
+        return `
 ## INSTRUCTIONS
 1. Analyze the user request and identify the key components and requirements within the project
-2. Read necessary files to understand context and dependencies
-3. Identify and list all main files that need to be modified or created
+2. Read necessary files within the project to understand context and dependencies
+3. Identify and list all main files that need to be modified or created. Verify assumptions before adding new files.
 4. Map out dependencies between the identified files
-5. Extract relevant code snippets that would be helpful for planning
-6. Determine the general approach that would be suitable for this task
-7. Estimate the overall complexity (LOW, MEDIUM, HIGH)
-8. Provide a confidence score (0.0-1.0) for your analysis
+5. Extract existing, seen in the project source files, relevant code snippets that would be helpful for planning
 
 ## OUTPUT FORMAT
 Provide your analysis in the following structured format:
 
 ANALYSIS:
-[Your detailed analysis of the request]
+[Your detailed analysis of the request and its understanding]
 
 MAIN_FILES:
 - [file_path_1]: [Brief description of why this file is relevant and what changes are needed]
@@ -145,16 +140,6 @@ RELEVANT_CODE_SNIPPETS:
 \`\`\`
 [Brief explanation of this code's relevance]
 ...
-
-SUGGESTED_APPROACH:
-[Your suggested approach for implementing the request]
-
-ESTIMATED_COMPLEXITY:
-[LOW, MEDIUM, or HIGH]
-
-CONFIDENCE:
-[A number between 0.0 and 1.0]
-
 Be precise with file paths and thorough in your analysis while remaining concise.
 `;
     }
