@@ -4,7 +4,7 @@ import inquirer from 'inquirer';
 import { BaseLLM } from '../../llm/base.js';
 import { MarkdownRenderer } from '../../utils/markdown-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
-import { WriteFileTool, PatchFileTool } from '../../llm/tools/index.js';
+import { WriteFileTool, PatchFileTool, ReadFileTool, BaseTool } from '../../llm/tools/index.js';
 import { Subtask, TaskPlan, ImplementationDetails } from '../../task-planning/schemas.js';
 import { TaskStatus } from '../interactive/task-types.js';
 import { TaskHistoryManager } from '../../utils/task-history-manager.js';
@@ -59,7 +59,7 @@ After completing the task, provide implementation details in the last message. T
 `;
   }
 
-  public async executeTask(prompt: string, userInput: string, llm: BaseLLM, taskId: string): Promise<{ success: boolean; implementationDetails: ImplementationDetails }> {
+  public async executeTask(prompt: string, userInput: string, llm: BaseLLM, taskId: string, allowRead: boolean = false): Promise<{ success: boolean; implementationDetails: ImplementationDetails }> {
     console.log(chalk.blue('\nExecuting task...'));
 
     // Display provider and model information
@@ -72,25 +72,30 @@ After completing the task, provide implementation details in the last message. T
       const projectDir = (await this.projectContext.getProjectContext()).projectRoot;
 
       // Execute the task with function calling enabled
-      const response = await llm.generate(undefined, `${prompt}\n<user_input>${userInput}</user_input>`, {
-        tools: [
-          new PatchFileTool(projectDir),
-          new WriteFileTool(projectDir, async (filePath, content) => {
-            spinner.stop();
-            const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
-              {
-                type: 'list',
-                name: 'confirmation',
-                message: `Do you accept write to ${filePath}?`,
-                choices: ['Yes', 'No'],
-                default: 'Yes'
-              }
-            ]);
+      let tools: BaseTool[] = [
+        new PatchFileTool(projectDir),
+        new WriteFileTool(projectDir, async (filePath, content) => {
+          spinner.stop();
+          const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
+            {
+              type: 'list',
+              name: 'confirmation',
+              message: `Do you accept write to ${filePath}?`,
+              choices: ['Yes', 'No'],
+              default: 'Yes'
+            }
+          ]);
 
-            spinner.start("Thinking...");
-            return confirmation === 'Yes';
-          }),
-        ],
+          spinner.start("Thinking...");
+          return confirmation === 'Yes';
+        }),
+      ];
+
+      if (allowRead) {
+        tools.push(new ReadFileTool(projectDir))
+      }
+      const response = await llm.generate(undefined, `${prompt}\n<user_input>${userInput}</user_input>`, {
+        tools: tools,
       });
 
       spinner.stop();

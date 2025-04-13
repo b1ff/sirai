@@ -62,7 +62,7 @@ export class FixingValidationErrorsState implements State {
         
         // Execute the LLM-based fix
         console.log(chalk.cyan('Executing LLM-based fix for validation errors...'));
-        const result = await taskExecutor.executeTask(basePrompt, fixPrompt, llm, fixTaskId);
+        const result = await taskExecutor.executeTask(basePrompt, fixPrompt, llm, fixTaskId, true);
         
         // Handle the result of the task execution
         if (result.success) {

@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import { BaseLLM } from '../../llm/base.js';
+import { FileReferenceProcessor } from '../../utils/file-reference-processor.js';
 import { CodeRenderer } from '../../utils/code-renderer.js';
 import { MarkdownRenderer } from '../../utils/markdown-renderer.js';
 import { PromptManager } from '../../utils/prompt-manager.js';
@@ -20,6 +21,7 @@ export class ConversationManager {
   private history: ChatMessage[] = [];
   private projectContext: ProjectContext;
   private contextString: string = '';
+  private fileReferenceProcessor: FileReferenceProcessor;
 
   /**
    * Creates a new conversation manager
@@ -42,6 +44,7 @@ export class ConversationManager {
     this.config = config;
     this.projectContext = projectContext;
     this.markdownRenderer = new MarkdownRenderer(config, codeRenderer);
+    this.fileReferenceProcessor = new FileReferenceProcessor(projectContext.getCurrentDirectory());
     this.contextString = "";
   }
 
@@ -62,9 +65,12 @@ export class ConversationManager {
    * @param input - The user input
    * @returns The processed input
    */
-  public processInput(input: string): string {
+  public async processInput(input: string): Promise<string> {
     // Process the input to replace prompt references
-    const processedInput = this.promptManager.processMessage(input);
+    const promptProcessedInput = this.promptManager.processMessage(input);
+    
+    // Process file references in the input
+    const processedInput = await this.fileReferenceProcessor.processMessage(promptProcessedInput);
 
     // Add to history
     this.history.push({ role: 'user', content: processedInput });

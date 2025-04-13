@@ -10,7 +10,7 @@ export class GatheringContextState implements State {
     const contextData = context.getContextData();
 
     // Process the user input
-    const processedInput = contextData.getConversationManager().processInput(contextData.getUserInput());
+    const processedInput = await contextData.getConversationManager().processInput(contextData.getUserInput());
 
     // If task planning is enabled, transition to generating plan
     if (contextData.getConfig().taskPlanning?.enabled && contextData.getLLM()) {
