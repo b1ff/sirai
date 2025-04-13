@@ -59,7 +59,6 @@ export class WaitingForInputState implements State {
         .sort();
     };
 
-    // Otherwise, prompt the user for input with autocomplete support
     const { userInput } = await inquirer.prompt<{ userInput: string }>([
       {
         type: 'autocomplete',
@@ -72,9 +71,18 @@ export class WaitingForInputState implements State {
           if (atIndex !== -1) {
             const files = await searchFiles(input, atIndex);
             return files.map(file => {
-              // Create a new input string with the file path inserted
-              const beforeAt = input.substring(0, atIndex + 1);
-              const suggestion = beforeAt + file;
+              // Get the text before the '@' symbol
+              const beforeAt = input.substring(0, atIndex);
+              // Get any text after the partial path that might need to be preserved
+              const partialPath = input.substring(atIndex + 1);
+              const partialPathEnd = partialPath.search(/\s|$/);
+              const afterPartialPath = partialPath.substring(partialPathEnd);
+              
+              // With suggestOnly:false, the entire input will be replaced with our value
+              // So we need to reconstruct the full input with our file path inserted
+              // Adding a space at the end ensures the caret is positioned after the file name
+              const suggestion = beforeAt + '@' + file + afterPartialPath + ' ';
+              console.log(suggestion);
               return {
                 name: file,
                 value: suggestion
@@ -83,7 +91,9 @@ export class WaitingForInputState implements State {
           }
           return [];
         },
-        suggestOnly: true
+        // This ensures the caret is positioned at the end of the input after selection
+        pageSize: 10,
+        suggestOnly: true,
       }
     ]);
 

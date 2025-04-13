@@ -178,7 +178,7 @@ export class FileSystemHelper {
         throw new Error(`${dir} is not a directory`);
       }
     } catch (error) {
-      throw new Error(`Directory ${dir} does not exist or cannot be accessed`);
+      return [];
     }
 
     // Read the directory
