@@ -93,7 +93,7 @@ export async function createRealLLM(): Promise<BaseLLM> {
         'lmstudio': {
           enabled: true,
           provider: 'lmstudio',
-          model: 'phi-4-mini-instruct',
+          model: 'qwen2.5-coder-7b-instruct-mlx',
         },
       }
     },

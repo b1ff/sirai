@@ -8,65 +8,63 @@ import { StateType } from './state-types.js';
  * State for generating a plan
  */
 export class GeneratingPlanState implements State {
-  public async process(context: StateContext): Promise<StateType> {
-    const contextData = context.getContextData();
-    const spinner = ora('Building task plan...').start();
+    public async process(context: StateContext): Promise<StateType> {
+        const contextData = context.getContextData();
+        const spinner = ora('Building task plan...').start();
 
-    try {
-      // Get project context for task planning
-      const projectRoot = contextData.getProjectContext('projectRoot');
-      const currentDir = contextData.getProjectContext('currentDir');
+        try {
+            // Get project context for task planning
+            const projectRoot = contextData.getProjectContext('projectRoot');
+            const currentDir = contextData.getProjectContext('currentDir');
 
-      const contextProfile = await contextData.getTaskPlanner().createContextProfile(
-        projectRoot,
-        currentDir
-      );
+            // Get referenced files from context data
+            // TODO: actually include them into llm request
+            const referencedFiles: string[] = contextData.getReferencedFiles() ?? [];
 
-      const plannerLlm = await contextData.getTaskPlanner().initialize();
-      spinner.info(`Building task plan using ${plannerLlm.provider}...`);
+            const contextProfile = await contextData.getTaskPlanner().createContextProfile(projectRoot, currentDir);
 
-      // Create task plan
-      const taskPlan = await contextData.getTaskPlanner().createTaskPlan(
-        contextData.getUserInput(),
-        contextProfile
-      );
+            const plannerLlm = await contextData.getTaskPlanner().initialize();
+            spinner.info(`Building task plan using ${plannerLlm.provider}...`);
 
-      // Generate explanation
-      const taskPlanExplanation = contextData.getTaskPlanner().getExplanation(taskPlan);
+            // Create task plan
+            const taskPlan = await contextData.getTaskPlanner().createTaskPlan(contextData.getUserInput(),contextProfile);
 
-      // Store the task plan in context data
-      contextData.setCurrentPlan(taskPlan);
+            // Generate explanation
+            const taskPlanExplanation = contextData.getTaskPlanner().getExplanation(taskPlan);
 
-      // Present the plan to the user using MarkdownRenderer
-      spinner.stop();
-      console.log(chalk.cyan('\n--- Task Plan ---'));
-      const markdownRenderer = contextData.getMarkdownRenderer();
-      console.log(markdownRenderer.render(taskPlanExplanation));
-      console.log(chalk.cyan('--- End of Task Plan ---\n'));
+            // Store the task plan in context data
+            contextData.setCurrentPlan(taskPlan);
 
-      return StateType.REVIEWING_PLAN;
-    } catch (error) {
-      spinner.stop();
-      console.error(chalk.red(`Error planning tasks: ${error instanceof Error ? error.message : 'Unknown error'}`));
+            // Present the plan to the user using MarkdownRenderer
+            spinner.stop();
+            console.log(chalk.cyan('\n--- Task Plan ---'));
+            const markdownRenderer = contextData.getMarkdownRenderer();
+            console.log(markdownRenderer.render(taskPlanExplanation));
+            console.log(chalk.cyan('--- End of Task Plan ---\n'));
 
-      // Generate a normal response and transition back to waiting for input
-      const llm = contextData.getLLM();
-      if (llm) {
-        await contextData.getConversationManager().generateResponse(
-          contextData.getUserInput(),
-          llm
-        );
-      }
+            return StateType.REVIEWING_PLAN;
+        } catch (error) {
+            spinner.stop();
+            console.error(chalk.red(`Error planning tasks: ${error instanceof Error ? error.message : 'Unknown error'}`));
 
-      return StateType.WAITING_FOR_INPUT;
+            // Generate a normal response and transition back to waiting for input
+            const llm = contextData.getLLM();
+            if (llm) {
+                await contextData.getConversationManager().generateResponse(
+                    contextData.getUserInput(),
+                    llm
+                );
+            }
+
+            return StateType.WAITING_FOR_INPUT;
+        }
     }
-  }
 
-  public enter(context: StateContext): void {
-    // Nothing to do
-  }
+    public enter(context: StateContext): void {
+        // Nothing to do
+    }
 
-  public exit(context: StateContext): void {
-    // Nothing to do
-  }
+    public exit(context: StateContext): void {
+        // Nothing to do
+    }
 }

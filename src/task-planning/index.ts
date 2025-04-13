@@ -24,4 +24,5 @@ export * from './file-system-utils.js';
 export * from './llm-planner.js';
 
 // Export pre-planner
-export * from './pre-planner.js';
+import { PrePlanner } from './pre-planner.js';
+export { PrePlanner };

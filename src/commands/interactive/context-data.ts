@@ -19,6 +19,7 @@ import { ValidationResult } from '../../task-planning/schemas.js';
 export class ContextData {
   private projectContext: Map<string, any>;
   private changedFiles: string[];
+  private referencedFiles: string[];
   private currentPlan: any;
   private tasks: any[];
   private retryCount: number;
@@ -40,6 +41,7 @@ export class ContextData {
   constructor(options: CommandOptions, config: AppConfig) {
     this.projectContext = new Map<string, any>();
     this.changedFiles = [];
+    this.referencedFiles = [];
     this.currentPlan = null;
     this.tasks = [];
     this.retryCount = 0;
@@ -203,5 +205,31 @@ export class ContextData {
 
   public resetFixAttempts(): void {
     this.fixAttempts = 0;
+  }
+
+  /**
+   * Adds a file to the list of referenced files
+   * @param filePath Path to the referenced file
+   */
+  public addReferencedFile(filePath: string): void {
+    if (!this.referencedFiles.includes(filePath)) {
+      this.referencedFiles.push(filePath);
+    }
+  }
+
+  /**
+   * Returns the list of referenced files
+   * @returns Array of referenced file paths
+   */
+  public getReferencedFiles(): string[] {
+    return [...this.referencedFiles];
+  }
+
+  /**
+   * Returns all files (both explicitly included and referenced)
+   * @returns Array of all file paths
+   */
+  public getAllFiles(): string[] {
+    return [...this.changedFiles, ...this.referencedFiles];
   }
 }

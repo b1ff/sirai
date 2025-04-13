@@ -20,6 +20,7 @@ export interface TokenLimitConfig {
  */
 export class FileSourceLlmPreparation {
   private readonly files: FileToRead[];
+  private readonly referencedFiles: FileToRead[];
   private readonly projectDir: string;
   private tokenLimitConfig?: TokenLimitConfig;
 
@@ -28,9 +29,16 @@ export class FileSourceLlmPreparation {
    * @param files - Array of files to prepare
    * @param projectDir - The project directory
    * @param tokenLimitConfig - Configuration for token limits
+   * @param referencedFiles - Array of referenced files to include
    */
-  constructor(files: FileToRead[], projectDir: string, tokenLimitConfig?: TokenLimitConfig) {
+  constructor(
+    files: FileToRead[], 
+    projectDir: string, 
+    tokenLimitConfig?: TokenLimitConfig,
+    referencedFiles: FileToRead[] = []
+  ) {
     this.files = files;
+    this.referencedFiles = referencedFiles;
     this.projectDir = path.resolve(projectDir);
     this.tokenLimitConfig = tokenLimitConfig;
   }
@@ -89,18 +97,24 @@ export class FileSourceLlmPreparation {
   /**
    * Renders files for LLM consumption
    * @param withLineNumbers - Whether to include line numbers
+   * @param includeReferencedFiles - Whether to include referenced files (default: true)
    * @returns The rendered file content
    */
-  public async renderForLlm(withLineNumbers: boolean = false): Promise<string> {
+  public async renderForLlm(withLineNumbers: boolean = false, includeReferencedFiles: boolean = true): Promise<string> {
     let fileContents = '';
     let totalTokens = 0;
     const maxTokens = this.tokenLimitConfig?.maxTokens;
     const reserveTokens = this.tokenLimitConfig?.reserveTokens || 0;
     
-    if (this.files && this.files.length > 0) {
+    // Combine explicitly included files and referenced files if needed
+    const allFiles = includeReferencedFiles 
+      ? [...this.files, ...this.referencedFiles]
+      : this.files;
+      
+    if (allFiles && allFiles.length > 0) {
       // First pass: read all files and calculate token counts
       const fileData = await Promise.all(
-        this.files.map(async (file) => {
+        allFiles.map(async (file) => {
           try {
             const content = await this.readFileContent(file.path);
             const processedContent = withLineNumbers ? this.addLineNumbers(content) : content;
@@ -181,6 +195,43 @@ export class FileSourceLlmPreparation {
     }
 
     return fileContents;
+  }
+
+  /**
+   * Adds a referenced file to be included in the LLM preparation
+   * @param file - The file to add as a reference
+   */
+  public addReferencedFile(file: FileToRead): void {
+    // Check if the file is already in the referenced files list
+    if (!this.referencedFiles.some(existingFile => existingFile.path === file.path)) {
+      this.referencedFiles.push(file);
+    }
+  }
+
+  /**
+   * Adds multiple referenced files to be included in the LLM preparation
+   * @param files - The files to add as references
+   */
+  public addReferencedFiles(files: FileToRead[]): void {
+    for (const file of files) {
+      this.addReferencedFile(file);
+    }
+  }
+
+  /**
+   * Gets all referenced files
+   * @returns Array of referenced files
+   */
+  public getReferencedFiles(): FileToRead[] {
+    return [...this.referencedFiles];
+  }
+
+  /**
+   * Gets all files (both explicitly included and referenced)
+   * @returns Combined array of all files
+   */
+  public getAllFiles(): FileToRead[] {
+    return [...this.files, ...this.referencedFiles];
   }
 
   private wrapFile(currFile: FileToRead, content: string) {

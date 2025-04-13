@@ -5,6 +5,7 @@ import { MarkdownRenderer } from '../utils/markdown-renderer.js';
 import { ListFilesTool, ReadFileTool } from '../llm/tools/index.js';
 import { LlmRequest } from '../llm/LlmRequest.js';
 
+
 export class PrePlanner {
     private readonly appConfig: AppConfig;
     private llm: BaseLLM | null = null;
@@ -56,15 +57,20 @@ export class PrePlanner {
         const llmRequest = this.addTools(new LlmRequest(), contextProfile);
 
         const filesStructure = await this.getProjectInitialFileList(contextProfile);
-        const contextString = contextProfile.createContextString();
 
         llmRequest
             .withSystemPrompt(this.getSystemPrompt())
             .withPrompt(this.getPrompt())
             .withUserMessage(`PROJECT FILES: ${filesStructure}`)
-            .withUserMessage(`PROJECT CONTEXT: ${contextString}`)
+            .withUserMessage(`PROJECT CONTEXT: ${contextProfile.createContextString()}`)
             .withUserMessage(`USER REQUEST: ${request}`)
         ;
+
+        if (contextProfile.referencedFiles) {
+            for (let file in contextProfile.referencedFiles) {
+                await llmRequest.addFile(file, contextProfile.projectRoot);
+            }
+        }
 
         try {
             const response = await this.llm.generateFrom(llmRequest);

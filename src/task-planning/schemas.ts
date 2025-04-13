@@ -150,5 +150,6 @@ export interface ContextProfile {
   technologyStack: string[];
   directoryStructure?: DirectoryStructure;
   guidelines?: string;
+  referencedFiles?: string[];
   createContextString(): string;
 }

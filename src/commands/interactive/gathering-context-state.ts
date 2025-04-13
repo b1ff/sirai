@@ -12,6 +12,9 @@ export class GatheringContextState implements State {
     // Process the user input
     const processedInput = await contextData.getConversationManager().processInput(contextData.getUserInput());
 
+    // Get referenced files from context data
+    const referencedFiles: string = contextData.getReferencedFiles()?.join(', ') ?? '';
+
     // If task planning is enabled, transition to generating plan
     if (contextData.getConfig().taskPlanning?.enabled && contextData.getLLM()) {
       return StateType.GENERATING_PLAN;
@@ -20,7 +23,8 @@ export class GatheringContextState implements State {
     // Otherwise, generate a normal response and transition back to waiting for input
     const llm = contextData.getLLM();
     if (llm) {
-      await contextData.getConversationManager().generateResponse(processedInput, llm);
+      // Include referenced files in the LLM request
+      await contextData.getConversationManager().generateResponse(processedInput, llm, referencedFiles);
     }
 
     return StateType.WAITING_FOR_INPUT;

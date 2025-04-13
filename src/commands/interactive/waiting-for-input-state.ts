@@ -6,6 +6,7 @@ import { State } from './state.js';
 import { StateContext } from './state-context.js';
 import { StateType } from './state-types.js';
 import { FileSystemHelper } from '../../llm/tools/file-system-helper.js';
+import { FileReferenceProcessor } from '../../utils/file-reference-processor.js';
 
 // Register the autocomplete prompt
 inquirer.registerPrompt('autocomplete', inquirerAutocomplete);
@@ -14,6 +15,11 @@ inquirer.registerPrompt('autocomplete', inquirerAutocomplete);
  * State for waiting for user input
  */
 export class WaitingForInputState implements State {
+  private fileReferenceProcessor: FileReferenceProcessor;
+
+  constructor() {
+    this.fileReferenceProcessor = new FileReferenceProcessor(process.cwd());
+  }
   public async process(context: StateContext): Promise<StateType> {
     const contextData = context.getContextData();
 
@@ -95,6 +101,14 @@ export class WaitingForInputState implements State {
 
       // Stay in the waiting for input state
       return StateType.WAITING_FOR_INPUT;
+    }
+
+    // Extract file references from user input
+    const fileReferences = this.fileReferenceProcessor.extractFileReferences(userInput);
+    
+    // Add extracted file references to the context data
+    for (const filePath of fileReferences) {
+      contextData.addReferencedFile(filePath);
     }
 
     // Process the input and transition to gathering context
