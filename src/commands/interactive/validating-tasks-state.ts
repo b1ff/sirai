@@ -203,7 +203,7 @@ export class ValidatingTasksState implements State {
         }
     }
 
-    private async handleFailedValidation(validationResult: any, taskPlan: any, contextData: any): Promise<StateType> {
+    private async handleFailedValidation(validationResult: any, taskPlan: any, contextData: ContextData): Promise<StateType> {
         // Store the validation result in the context for use by FixingValidationErrorsState
         this.storeValidationResult(contextData, validationResult);
         
@@ -232,8 +232,8 @@ export class ValidatingTasksState implements State {
         }
     }
 
-    private storeValidationResult(context: StateContext, result: any): void {
-        context.getContextData().setValidationResult(result);
+    private storeValidationResult(context: ContextData, result: any): void {
+        context.setValidationResult(result);
     }
 
     private buildRegenerationFeedback(validationResult: any, taskPlan: any): string {
@@ -245,7 +245,7 @@ export class ValidatingTasksState implements State {
     }
 
     private handleError(error: unknown, contextData: ContextData): void {
-        console.error(chalk.red(`Error validating tasks: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error(chalk.red(`Error validating tasks: ${error instanceof Error ? error.message : 'Unknown error'}`), error);
 
         try {
             const llm = contextData.getLLM();

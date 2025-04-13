@@ -3,7 +3,7 @@ import { AppConfig, LLMFactory } from '../llm/factory.js';
 import { FileSystemUtils } from './file-system-utils.js';
 import { MarkdownRenderer } from '../utils/markdown-renderer.js';
 import { ComplexityLevel, ContextProfile, LLMType, Subtask, TaskPlan } from './schemas.js';
-import { PrePlanner, PrePlanningResult } from './pre-planner.js';
+import { PrePlanner } from './pre-planner.js';
 import { v4 as uuidv4 } from 'uuid';
 import {
     StorePlanTool,
@@ -125,13 +125,13 @@ export class LLMPlanner {
         }
 
         // 2. Check if pre-planning is enabled
-        let prePlanningResult: PrePlanningResult | null = null;
+        let prePlanningResult: string | null = null;
         if (this.appConfig.taskPlanning?.prePlanning?.enabled) {
             try {
                 console.log('Starting pre-planning phase...');
                 const prePlanner = new PrePlanner(this.appConfig, this.markdownRenderer);
                 prePlanningResult = await prePlanner.analyze(request, contextProfile);
-                console.log(`Pre-planning completed with confidence: ${prePlanningResult.confidence}`);
+                console.log(`Pre-planning completed`);
             } catch (error) {
                 console.warn(`Pre-planning failed: ${error instanceof Error ? error.message : String(error)}`);
                 // Continue with main planning even if pre-planning fails
@@ -251,7 +251,7 @@ export class LLMPlanner {
         contextProfile: ContextProfile, 
         filesStructure: string, 
         contextString: string,
-        prePlanningResult: PrePlanningResult | null = null
+        prePlanningResult: string | null = null
     ) {
         // Base prompt
         let prompt = `
@@ -273,10 +273,7 @@ ${filesStructure}
 The following is an initial analysis performed by a simpler model. Use this as a starting point for your planning:
 
 ANALYSIS:
-${prePlanningResult.analysis}
-
-SUGGESTED APPROACH:
-${prePlanningResult.suggestedApproach}
+${prePlanningResult}
 `;
         }
 

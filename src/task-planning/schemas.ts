@@ -1,6 +1,3 @@
-/**
- * JSON schemas for task planning component
- */
 import { TaskStatus } from '../commands/interactive/task-types.js';
 
 /**
@@ -42,9 +39,6 @@ export interface ComplexityAssessmentParams {
   priorSuccessRate?: number;
 }
 
-/**
- * Interface for complexity assessment result
- */
 export interface ComplexityAssessmentResult {
   level: ComplexityLevel;
   score: number;
@@ -58,17 +52,11 @@ export interface ComplexityAssessmentResult {
   explanation: string;
 }
 
-/**
- * Interface for a file to read in a subtask
- */
 export interface FileToRead {
   path: string;
   syntax: string;
 }
 
-/**
- * Interface for storing implementation details of a task
- */
 export interface ImplementationDetails {
   taskid: string;
   content: string;

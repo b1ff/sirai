@@ -41,7 +41,7 @@ program
       await startInteractiveSession(options, config);
     } catch (error) {
       if (error instanceof Error) {
-        console.error(chalk.red(`Error: ${error.message}`));
+        console.error(chalk.red(`Error: ${error.message}`), error);
       } else {
         console.error(chalk.red('An unknown error occurred'));
       }
@@ -61,7 +61,7 @@ program
       await executePromptFromFile(promptFile, options, config);
     } catch (error) {
       if (error instanceof Error) {
-        console.error(chalk.red(`Error: ${error.message}`));
+        console.error(chalk.red(`Error: ${error.message}`), error);
       } else {
         console.error(chalk.red('An unknown error occurred'));
       }
@@ -81,7 +81,7 @@ program
       await configureSettings(options, config);
     } catch (error) {
       if (error instanceof Error) {
-        console.error(chalk.red(`Error: ${error.message}`));
+        console.error(chalk.red(`Error: ${error.message}`), error);
       } else {
         console.error(chalk.red('An unknown error occurred'));
       }
@@ -104,7 +104,7 @@ program
       await executeTaskDirectly(options, config);
     } catch (error) {
       if (error instanceof Error) {
-        console.error(chalk.red(`Error: ${error.message}`));
+        console.error(chalk.red(`Error: ${error.message}`), error);
       } else {
         console.error(chalk.red('An unknown error occurred'));
       }

@@ -105,6 +105,7 @@ export class DelegateToModelTool extends BaseTool {
                     results.push({ query: currentQuery, response });
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : String(error);
+                    console.error(`Error processing query ${i + 1}`, error);
                     results.push({
                         query: currentQuery,
                         response: `Error processing this query: ${errorMessage}`

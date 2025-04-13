@@ -4,19 +4,6 @@ import { ContextProfile } from './schemas.js';
 import { MarkdownRenderer } from '../utils/markdown-renderer.js';
 import { BaseTool, ListFilesTool, ReadFileTool } from '../llm/tools/index.js';
 
-/**
- * Result of the pre-planning phase
- */
-export interface PrePlanningResult {
-    analysis: string;
-    suggestedApproach: string;
-    estimatedComplexity: string;
-    confidence: number;
-}
-
-/**
- * Class for pre-planning using a cheaper/local model
- */
 export class PrePlanner {
     private appConfig: AppConfig;
     private llm: BaseLLM | null = null;
@@ -27,9 +14,6 @@ export class PrePlanner {
         this.markdownRenderer = markdownRenderer;
     }
 
-    /**
-     * Initializes the LLM for pre-planning
-     */
     async initialize(): Promise<BaseLLM> {
         if (this.llm) {
             return this.llm;
@@ -59,10 +43,7 @@ export class PrePlanner {
         }
     }
 
-    /**
-     * Performs pre-planning analysis
-     */
-    async analyze(request: string, contextProfile: ContextProfile): Promise<PrePlanningResult> {
+    async analyze(request: string, contextProfile: ContextProfile): Promise<string> {
         // Initialize LLM if not already initialized
         if (!this.llm) {
             await this.initialize();
@@ -75,7 +56,7 @@ export class PrePlanner {
         // Get tools for pre-planning
         const tools = this.getTools(contextProfile);
 
-        // Get directory structure
+        // Get directory structure using FileSystemUtils
         let filesStructure = 'Could not retrieve directory structure.';
         try {
             const listFilesTool = new ListFilesTool(contextProfile.projectRoot);
@@ -96,18 +77,16 @@ export class PrePlanner {
                 tools,
             });
 
-            // Parse the response to extract pre-planning result
-            const result = this.parseResponse(response);
-            return result;
+            console.log(`Pre-planning analysis generated for request: ${request}`);
+            console.log(this.markdownRenderer?.render(response));
+
+            return response;
         } catch (error) {
-            console.error(`Error generating pre-planning analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            console.error(`Error generating pre-planning analysis: ${error instanceof Error ? error.message : 'Unknown error'}`, error);
             throw error;
         }
     }
 
-    /**
-     * Gets the tools for pre-planning
-     */
     private getTools(contextProfile: ContextProfile): BaseTool[] {
         return [
             new ReadFileTool(contextProfile.projectRoot),
@@ -118,9 +97,8 @@ export class PrePlanner {
     private getPrompt(filesStructure: string, contextString: string): string {
         return `
 You are a task pre-planning assistant. Your job is to perform an initial analysis of a user request to help with the main planning phase.
-You should focus on understanding the request, identifying key files, components, interface and hot places, and suggesting a high-level approach.
-Goal is to reduce the amount of analysis that is needed for your teammate who is going to do full analysis and implementation. You must provide specific files, places and even pieces of codes if needed, so the teammate perform less actions.
-With explanation include exact references to files paths, code, and other relevant information.
+You should focus on understanding the request, identifying key files, components, interfaces and critical code sections, and suggesting a high-level approach.
+Your goal is to reduce the amount of analysis needed for your teammate who will do the full analysis and implementation. You must provide specific files, locations, and code snippets when relevant.
 
 ## PROJECT CONTEXT
 ${contextString}
@@ -129,17 +107,44 @@ ${contextString}
 ${filesStructure}
 
 ## INSTRUCTIONS
-1. Analyze the user request and identify within project the key components and requirements
-2. Read needed files to understand context and dependencies.
-3. Determine the general approach that would be suitable for this task
-4. Estimate the overall complexity (LOW, MEDIUM, HIGH)
-5. Provide a confidence score (0.0-1.0) for your analysis
+1. Analyze the user request and identify the key components and requirements within the project
+2. Read necessary files to understand context and dependencies
+3. Identify and list all main files that need to be modified or created
+4. Map out dependencies between the identified files
+5. Extract relevant code snippets that would be helpful for planning
+6. Determine the general approach that would be suitable for this task
+7. Estimate the overall complexity (LOW, MEDIUM, HIGH)
+8. Provide a confidence score (0.0-1.0) for your analysis
 
 ## OUTPUT FORMAT
-Provide your analysis in the following format:
+Provide your analysis in the following structured format:
 
 ANALYSIS:
 [Your detailed analysis of the request]
+
+MAIN_FILES:
+- [file_path_1]: [Brief description of why this file is relevant and what changes are needed]
+- [file_path_2]: [Brief description of why this file is relevant and what changes are needed]
+...
+
+DEPENDENCIES:
+- [file_path_1] depends on [file_path_2] because [reason]
+- [file_path_3] is imported by [file_path_4] for [functionality]
+...
+
+RELEVANT_CODE_SNIPPETS:
+[file_path_1]:
+\`\`\`
+[code snippet]
+\`\`\`
+[Brief explanation of this code's relevance]
+
+[file_path_2]:
+\`\`\`
+[code snippet]
+\`\`\`
+[Brief explanation of this code's relevance]
+...
 
 SUGGESTED_APPROACH:
 [Your suggested approach for implementing the request]
@@ -150,48 +155,7 @@ ESTIMATED_COMPLEXITY:
 CONFIDENCE:
 [A number between 0.0 and 1.0]
 
-Remember to be concise but thorough in your analysis.
+Be precise with file paths and thorough in your analysis while remaining concise.
 `;
-    }
-
-    private parseResponse(response: string): PrePlanningResult {
-        // Default values
-        let analysis = '';
-        let suggestedApproach = '';
-        let estimatedComplexity = 'MEDIUM';
-        let confidence = 0.5;
-
-        // Extract analysis
-        const analysisMatch = response.match(/ANALYSIS:\s*([\s\S]*?)(?=SUGGESTED_APPROACH:|$)/i);
-        if (analysisMatch && analysisMatch[1]) {
-            analysis = analysisMatch[1].trim();
-        }
-
-        // Extract suggested approach
-        const approachMatch = response.match(/SUGGESTED_APPROACH:\s*([\s\S]*?)(?=ESTIMATED_COMPLEXITY:|$)/i);
-        if (approachMatch && approachMatch[1]) {
-            suggestedApproach = approachMatch[1].trim();
-        }
-
-        // Extract estimated complexity
-        const complexityMatch = response.match(/ESTIMATED_COMPLEXITY:\s*(LOW|MEDIUM|HIGH)/i);
-        if (complexityMatch && complexityMatch[1]) {
-            estimatedComplexity = complexityMatch[1].toUpperCase();
-        }
-
-        // Extract confidence
-        const confidenceMatch = response.match(/CONFIDENCE:\s*([0-9]*\.?[0-9]+)/i);
-        if (confidenceMatch && confidenceMatch[1]) {
-            confidence = parseFloat(confidenceMatch[1]);
-            // Ensure confidence is between 0 and 1
-            confidence = Math.max(0, Math.min(1, confidence));
-        }
-
-        return {
-            analysis,
-            suggestedApproach,
-            estimatedComplexity,
-            confidence
-        };
     }
 }
