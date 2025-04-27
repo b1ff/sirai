@@ -1,15 +1,16 @@
 import { BaseLLM, LLMConfig, LLMOptions, ChunkCallback, StructuredLLMOutput } from './base.js';
-import { z } from 'zod';
-import { streamText, generateText, generateObject } from 'ai';
+import { z, ZodError } from 'zod';
+import { streamText, generateText, generateObject, CoreMessage } from 'ai';
 import { BaseVercelAIProvider } from './vercel-ai/base.js';
 import { VercelAIFactory } from './vercel-ai/factory.js';
 import { AITracer } from '../utils/tracer.js';
 import { LlmRequest } from './LlmRequest.js';
+import { handleZodError } from './tools/index.js';
 
 export class VercelAIAdapter extends BaseLLM {
     private aiProvider: BaseVercelAIProvider;
 
-    constructor(config: LLMConfig & { provider: string }) {
+    constructor(config: LLMConfig & {provider: string}) {
         super(config);
         this.aiProvider = VercelAIFactory.createProvider(this.provider, config);
     }
@@ -26,19 +27,79 @@ export class VercelAIAdapter extends BaseLLM {
         return await this.generateInner(systemInstructions, userInput, options);
     }
 
-    async generateFrom(req: LlmRequest): Promise<string> {
+    async generateFrom(req: LlmRequest, options?: {
+        maxToolCallRepairs?: number,
+    }): Promise<string> {
         try {
             // Trace the prompt
             AITracer.getInstance().tracePrompt(req.systemPromptText, req.promptText);
 
-            // Use Vercel AI SDK generateText function
+            // Use Vercel AI SDK generateText function with experimental_repairToolCall
             const result = await generateText({
                 model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
                 toolChoice: 'auto',
                 ...this.aiProvider.adaptOptions({
                     tools: req.toolsList
                 }),
-                messages: req.combinedMessages
+                messages: req.combinedMessages,
+                experimental_repairToolCall: async ({
+                    toolCall,
+                    tools,
+                    error,
+                    messages,
+                    system,
+                }) => {
+                    AITracer.getInstance().traceError(error);
+
+                    let reRunMessages: CoreMessage[] = [
+                        ...messages,
+                        {
+                            role: 'assistant',
+                            content: [
+                                {
+                                    type: 'tool-call',
+                                    toolCallId: toolCall.toolCallId,
+                                    toolName: toolCall.toolName,
+                                    args: typeof toolCall.args === 'string' ? JSON.parse(toolCall.args) : toolCall.args,
+                                },
+                            ],
+                        },
+                        {
+                            role: 'tool' as const,
+                            content: [
+                                {
+                                    type: 'tool-result',
+                                    toolCallId: toolCall.toolCallId,
+                                    toolName: toolCall.toolName,
+                                    isError: true,
+                                    result: JSON.stringify({
+                                        message: "please re-ran with fix the following errors",
+                                        error: this.handleToolError(error)
+                                    })
+                                },
+                            ],
+                        },
+                    ];
+                    const result = await generateText({
+                        model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
+                        system,
+                        messages: reRunMessages,
+                        tools,
+                    });
+
+                    const newToolCall = result.toolCalls.find(
+                        newToolCall => newToolCall.toolName === toolCall.toolName,
+                    );
+
+                    return newToolCall != null
+                        ? {
+                            toolCallType: 'function' as const,
+                            toolCallId: toolCall.toolCallId,
+                            toolName: toolCall.toolName,
+                            args: JSON.stringify(newToolCall.args),
+                        }
+                        : null;
+                }
             });
 
             this.trackInputTokens(result.usage.promptTokens);
@@ -55,7 +116,42 @@ export class VercelAIAdapter extends BaseLLM {
         }
     }
 
-    private async generateInner(systemInstructions: string | undefined, userInput: string, options: LLMOptions | undefined) {
+    protected handleToolError(error: unknown): string {
+        // Check for Zod validation errors first
+        if (error instanceof ZodError) {
+            return handleZodError(error);
+        }
+
+        // Create a more detailed error object for other types of errors
+        const errorObj: Record<string, unknown> = {
+            status: 'error',
+        };
+
+        if (error instanceof Error) {
+            errorObj.message = `Failed to execute tool: ${error.message}`;
+            // Include stack trace in development environments
+            if (process.env.NODE_ENV === 'development' && error.stack) {
+                errorObj.stack = error.stack;
+            }
+            // Include any additional properties from the error
+            Object.entries(error).forEach(([key, value]) => {
+                if (key !== 'message' && key !== 'stack') {
+                    errorObj[key] = value;
+                }
+            });
+        } else if (error && typeof error === 'object') {
+            errorObj.message = 'Failed to execute tool';
+            errorObj.error = error;
+        } else {
+            errorObj.message = `Failed to execute tool: ${String(error)}`;
+        }
+
+        return JSON.stringify(errorObj, null, 2);
+    }
+
+    private async generateInner(systemInstructions: string | undefined, userInput: string,
+        options: LLMOptions | undefined
+    ) {
         const req = new LlmRequest()
             .withPrompt(userInput);
         if (systemInstructions) {
@@ -68,7 +164,10 @@ export class VercelAIAdapter extends BaseLLM {
             }
         }
 
-        return await this.generateFrom(req);
+        // Pass relevant tool repair options to generateFrom
+        return await this.generateFrom(req, {
+            maxToolCallRepairs: options?.maxToolCallRepairs
+        });
     }
 
     async generateStream(

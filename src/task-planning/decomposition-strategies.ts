@@ -34,7 +34,7 @@ export class HighComplexityStrategy implements DecompositionStrategy {
     const analysisId = uuidv4();
     subtasks.push({
       id: analysisId,
-      taskSpecification: 'Analyze requirements and context',
+      specification: 'Analyze requirements and context',
       complexity: ComplexityLevel.MEDIUM,
       llmType: LLMType.REMOTE, // Use remote LLM for analysis
       dependencies: []
@@ -45,7 +45,7 @@ export class HighComplexityStrategy implements DecompositionStrategy {
     const planningId = uuidv4();
     subtasks.push({
       id: planningId,
-      taskSpecification: 'Create detailed implementation plan',
+      specification: 'Create detailed implementation plan',
       complexity: ComplexityLevel.MEDIUM,
       llmType: LLMType.REMOTE, // Use remote LLM for planning
       dependencies: [analysisId]
@@ -58,7 +58,7 @@ export class HighComplexityStrategy implements DecompositionStrategy {
       const implId = uuidv4();
       subtasks.push({
         id: implId,
-        taskSpecification: `Implementation part ${i}`,
+        specification: `Implementation part ${i}`,
         complexity: ComplexityLevel.MEDIUM,
         llmType: LLMType.HYBRID, // Use hybrid approach for implementation
         dependencies: [planningId]
@@ -71,7 +71,7 @@ export class HighComplexityStrategy implements DecompositionStrategy {
     const integrationId = uuidv4();
     subtasks.push({
       id: integrationId,
-      taskSpecification: 'Integrate all implementation parts',
+      specification: 'Integrate all implementation parts',
       complexity: ComplexityLevel.MEDIUM,
       llmType: LLMType.REMOTE, // Use remote LLM for integration
       dependencies: implementationIds
@@ -82,7 +82,7 @@ export class HighComplexityStrategy implements DecompositionStrategy {
     const testingId = uuidv4();
     subtasks.push({
       id: testingId,
-      taskSpecification: 'Test the implementation',
+      specification: 'Test the implementation',
       complexity: ComplexityLevel.MEDIUM,
       llmType: LLMType.HYBRID, // Use hybrid approach for testing
       dependencies: [integrationId]
@@ -93,7 +93,7 @@ export class HighComplexityStrategy implements DecompositionStrategy {
     const documentationId = uuidv4();
     subtasks.push({
       id: documentationId,
-      taskSpecification: 'Create documentation',
+      specification: 'Create documentation',
       complexity: ComplexityLevel.LOW,
       llmType: LLMType.LOCAL, // Use local LLM for documentation
       dependencies: [integrationId]
@@ -104,7 +104,7 @@ export class HighComplexityStrategy implements DecompositionStrategy {
     const reviewId = uuidv4();
     subtasks.push({
       id: reviewId,
-      taskSpecification: 'Final review and quality check',
+      specification: 'Final review and quality check',
       complexity: ComplexityLevel.MEDIUM,
       llmType: LLMType.REMOTE, // Use remote LLM for final review
       dependencies: [testingId, documentationId]
@@ -134,7 +134,7 @@ export class MediumComplexityStrategy implements DecompositionStrategy {
     const analysisId = uuidv4();
     subtasks.push({
       id: analysisId,
-      taskSpecification: 'Analyze requirements and context',
+      specification: 'Analyze requirements and context',
       complexity: ComplexityLevel.MEDIUM,
       llmType: LLMType.HYBRID, // Use hybrid approach for analysis
       dependencies: []
@@ -145,7 +145,7 @@ export class MediumComplexityStrategy implements DecompositionStrategy {
     const implementationId = uuidv4();
     subtasks.push({
       id: implementationId,
-      taskSpecification: 'Implement the solution',
+      specification: 'Implement the solution',
       complexity: ComplexityLevel.MEDIUM,
       llmType: LLMType.HYBRID, // Use hybrid approach for implementation
       dependencies: [analysisId]
@@ -156,7 +156,7 @@ export class MediumComplexityStrategy implements DecompositionStrategy {
     const testingId = uuidv4();
     subtasks.push({
       id: testingId,
-      taskSpecification: 'Test the implementation',
+      specification: 'Test the implementation',
       complexity: ComplexityLevel.LOW,
       llmType: LLMType.LOCAL, // Use local LLM for testing
       dependencies: [implementationId]
@@ -167,7 +167,7 @@ export class MediumComplexityStrategy implements DecompositionStrategy {
     const documentationId = uuidv4();
     subtasks.push({
       id: documentationId,
-      taskSpecification: 'Create documentation',
+      specification: 'Create documentation',
       complexity: ComplexityLevel.LOW,
       llmType: LLMType.LOCAL, // Use local LLM for documentation
       dependencies: [implementationId]
@@ -197,7 +197,7 @@ export class LowComplexityStrategy implements DecompositionStrategy {
     const implementationId = uuidv4();
     subtasks.push({
       id: implementationId,
-      taskSpecification: 'Implement the complete solution',
+      specification: 'Implement the complete solution',
       complexity: ComplexityLevel.LOW,
       llmType: LLMType.LOCAL, // Use local LLM for simple tasks
       dependencies: []

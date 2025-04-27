@@ -197,7 +197,7 @@ export class LLMPlanner {
 
                 return {
                     id,
-                    taskSpecification: subtask.taskSpecification || 'No spec provided',
+                    specification: subtask.specification || 'No spec provided',
                     complexity,
                     llmType,
                     dependencies,
@@ -226,12 +226,10 @@ export class LLMPlanner {
                 validationInstructions: savedPlan.validationInstructions
             };
         } catch (error) {
-            console.error(`Error generating task plan with LLM: ${error instanceof Error ? error.message : 'Unknown error'}`);
-
-            // Fallback to a simple task plan
+            console.error(`Error generating task plan with LLM: ${error instanceof Error ? error.message : 'Unknown error'}`, error);
             const subtask: Subtask = {
                 id: uuidv4(),
-                taskSpecification: request,
+                specification: request,
                 complexity: ComplexityLevel.MEDIUM,
                 llmType: LLMType.REMOTE,
                 dependencies: []
@@ -253,7 +251,6 @@ export class LLMPlanner {
         contextString: string,
         prePlanningResult: string | null = null
     ) {
-        // Base prompt
         let prompt = `
 You are a task planning assistant. Your job is to analyze a user request and create a detailed, executable plan to accomplish their goal. Count that plan execution will be automated, without user involvement or intervention.
 
@@ -282,10 +279,12 @@ ${prePlanningResult}
 
 ## CONTEXT GATHERING PHASE
 First, use the provided tools to explore the project and gather essential context. Focus on:
-1. Needed input files, and it's important for the task dependencies
+1. Necessary input files, and it's important for the task dependencies
 2. Dependencies and their versions
 3. Existing code patterns and architecture
 4. Configuration files and settings
+5. Build system specifics - how code is compiled and verified in this project
+6. Test framework and conventions used
 
 If you need clarification from the user, use the "ask_user" tool to ask specific questions. This is especially useful when:
 - The request is ambiguous or lacks necessary details
@@ -316,9 +315,9 @@ ${contextString}
 ## TASK PLANNING PHASE
 Based on the gathered context, create a precise implementation plan by breaking down the request into executable subtasks.
 
-For each subtask specification, use the following structured template:
+For each subtask specification (subtasks[*].taskSpecification), use the following structured template in <subtask_specification_template> body:
 
-<subtask_specification>
+<subtask_specification_template>
 Title: [Descriptive Task Title]
 
 Context of the task: [Description of the task context, considering that executor does not know on the initial task]
@@ -328,7 +327,7 @@ Goal: [Clear statement of what this subtask should accomplish]
 Context:
 - Files: [Full paths to files that need to be created or modified]
 - Interfaces: [Description of public interfaces to implement or use]
-- Project Patterns: [Higlight this project specific patterns to follow]
+- Project Patterns: [Highlight this project specific patterns to follow]
 
 Requirements:
 1. [Detailed requirement 1..n]
@@ -338,9 +337,8 @@ Input: [What the subtask starts with]
 Output: [Expected deliverable]
 
 Implementation Details:
-1. [include metod signatures, references, etc. to ensure implementation precision]
-2. ...
-</subtask_specification>
+[include method signatures, references, etc. to ensure implementation precision, guidance on maintaining code in a compilable state, error handling and defensive coding practices]
+</subtask_specification_template>
 
 ## GUIDELINES FOR EFFECTIVE SUBTASKS:
 
@@ -350,11 +348,13 @@ Implementation Details:
 
 3. PRECISE PATHS: Always include full paths to files, exact module names, and complete interface specifications.
 
-4. IMPLEMENTATION DETAIL: Provide enough technical guidance that an AI without context can implement correctly. You must act as senior developer guiding beloved junior developer, who wants task to be completed sucesfully. Inlcude enough implementation guidance to ensure the task is done correctly. Executor won't have access to your gathered context, only what is specified within subtask. 
+4. IMPLEMENTATION DETAIL: Provide enough technical guidance that an AI without context can implement correctly. You must act as senior developer guiding beloved junior developer, who wants task to be completed successfully. Include enough implementation guidance to ensure the task is done correctly. Executor won't have access to your gathered context, only what is specified within subtask.
 
 5. CODE PATTERNS: Include examples of existing code patterns when relevant to ensure consistency.
 
 6. INTERFACE DEFINITIONS: Clearly define how components will interact with each other.
+
+7. Each subtask must provide guidance to ensure the code remains in a compilable, working state. Never leave the codebase in a broken state.
 
 ## VALIDATION INSTRUCTIONS
 
@@ -373,9 +373,10 @@ Format your validation instructions as a series of numbered steps, with each ste
 - The expected outcome
 - How to interpret the results
 
-ALWAYS call "store_plan" tool at the end of context gathering. Make sure to include the "validationInstructions" field in your plan with detailed steps for validating the implementation.
+ALWAYS call "store_plan" tool at the end of context gathering providing valid parameters. 
+IT IS VERY IMPORTANT: follow "store_plan" tool scheme, do not try to call with the other parameters. Subtasks are objects, specification only one field of it, so be attentive. Make sure to include the "validationInstructions" field in your plan with detailed steps for validating the implementation.
 
-After the plan is saved successfully, provide a concise summary of your understanding of the task and the approach you've outlined.
+ONLY WHEN the plan is saved successfully, provide a concise summary of your understanding of the task and the approach you've outlined.
 `;
 
         return prompt;
@@ -496,7 +497,7 @@ After the plan is saved successfully, provide a concise summary of your understa
         // Add subtasks explanation
         explanation += `## Subtasks\n\n`;
         taskPlan.subtasks.forEach((subtask, index) => {
-            explanation += `### ${index + 1}. ${subtask.taskSpecification}\n`;
+            explanation += `### ${index + 1}. ${subtask.specification}\n`;
             explanation += `- Complexity: ${subtask.complexity.toUpperCase()}\n`;
             explanation += `- LLM Strategy: ${subtask.llmType.toUpperCase()}\n`;
 

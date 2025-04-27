@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BaseTool } from './base.js';
-import { ComplexityLevel } from '../../task-planning/schemas.js';
+import { ComplexityLevel, Subtask } from '../../task-planning/schemas.js';
 
 /**
  * Zod schema for a file to read
@@ -15,7 +15,7 @@ const FileToReadSchema = z.object({
  */
 const SubtaskSchema = z.object({
   id: z.string().optional().describe('Unique identifier for the subtask'),
-  taskSpecification: z.string().describe('Detailed content of <subtask_specification> of what the subtask should accomplish'),
+  specification: z.string().describe('Detailed content defined by <subtask_specification_template>'),
   complexity: z.enum([ComplexityLevel.LOW, ComplexityLevel.MEDIUM, ComplexityLevel.HIGH])
     .default(ComplexityLevel.MEDIUM)
     .describe('The estimated complexity level of the subtask'),
@@ -23,21 +23,14 @@ const SubtaskSchema = z.object({
   filesToRead: z.array(FileToReadSchema).optional().describe('List of files that need to be read to complete this subtask')
 }).describe('A single unit of work within a larger task plan');
 
-/**
- * Zod schema for a task plan
- */
 const TaskPlanSchema = z.object({
-  planningThinking: z.string().describe('The reasoning and thought process behind the task plan'),
-  subtasks: z.array(SubtaskSchema).describe('List of subtasks that make up the complete task'),
+  subtasks: z.array(SubtaskSchema).describe('List of subtasks that make up the complete task').min(1),
   executionOrder: z.array(z.string()).optional().describe('The recommended order of subtask execution by ID'),
   overallComplexity: z.enum([ComplexityLevel.LOW, ComplexityLevel.MEDIUM, ComplexityLevel.HIGH]).optional()
   .describe('The overall complexity assessment of the entire task'),
   validationInstructions: z.string().optional().describe('Instructions for validating the task execution')
 }).describe('A complete plan for executing a complex task, broken down into subtasks');
 
-/**
- * Tool for saving a plan from LLM
- */
 export class StorePlanTool extends BaseTool {
   /**
    * The name of the tool
@@ -47,15 +40,9 @@ export class StorePlanTool extends BaseTool {
   /**
    * The description of the tool
    */
-  description = 'Save the task plan. Pass the generated plan as input to this tool. If this tool provided it must be always called.';
+  description = 'Save the task plan for execution. Pass the generated plan as input to this tool. If this tool provided it must be always called.';
 
-  /**
-   * The parameters of the tool
-   */
-  parameters = z.object({
-    plan: TaskPlanSchema.describe('The task plan to save'),
-  });
-
+  parameters = TaskPlanSchema;
   /**
    * The saved plan
    */
@@ -66,9 +53,8 @@ export class StorePlanTool extends BaseTool {
    * @param args - The arguments to pass to the tool
    * @returns The saved plan as a JSON string
    */
-  async execute({ plan }: any): Promise<string> {
-    // Save the plan
-    this.savedPlan = plan;
+  async execute(args: Record<string, unknown>): Promise<string> {
+    this.savedPlan = args as any;
 
     // Return the plan as a JSON string
     return JSON.stringify({

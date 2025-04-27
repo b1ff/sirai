@@ -35,7 +35,7 @@ export async function executeTaskDirectly(options: CommandOptions, config: AppCo
 
     try {
         // Extract task data
-        const { taskSpecification, filesToRead } = await extractTaskData(options);
+        const { specification, filesToRead } = await extractTaskData(options);
 
         // Initialize LLM
         const spinner = ora('Initializing LLM...').start();
@@ -43,7 +43,7 @@ export async function executeTaskDirectly(options: CommandOptions, config: AppCo
 
         try {
             const llm = await initializeLLM(config, options, taskType, spinner);
-            await executeTask(config, llm, taskSpecification, filesToRead);
+            await executeTask(config, llm, specification, filesToRead);
         } catch (error) {
             spinner.fail('LLM initialization failed');
             throw error;
@@ -55,7 +55,7 @@ export async function executeTaskDirectly(options: CommandOptions, config: AppCo
 }
 
 async function extractTaskData(options: CommandOptions): Promise<{
-    taskSpecification: string;
+    specification: string;
     filesToRead?: FileToRead[]
 }> {
     if (options.taskFile) {
@@ -63,14 +63,14 @@ async function extractTaskData(options: CommandOptions): Promise<{
     }
 
     if (options.task) {
-        return { taskSpecification: options.task };
+        return { specification: options.task };
     }
 
     throw new Error('No task specified. Use --task or provide a task file.');
 }
 
 async function readTaskFromFile(taskFilePath: string): Promise<{
-    taskSpecification: string;
+    specification: string;
     filesToRead?: FileToRead[]
 }> {
     try {
@@ -84,7 +84,7 @@ async function readTaskFromFile(taskFilePath: string): Promise<{
 
         if (taskData.taskSpecification) {
             return {
-                taskSpecification: taskData.taskSpecification,
+                specification: taskData.taskSpecification,
                 filesToRead: taskData.filesToRead
             };
         }
@@ -92,7 +92,7 @@ async function readTaskFromFile(taskFilePath: string): Promise<{
         if (taskData.subtasks && taskData.subtasks.length > 0) {
             const subtask = taskData.subtasks[0] as Subtask;
             return {
-                taskSpecification: subtask.taskSpecification,
+                specification: subtask.specification,
                 filesToRead: subtask.filesToRead
             };
         }

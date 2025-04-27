@@ -3,6 +3,7 @@ import { BaseTool } from '../tools/index.js';
 import { formatToolCall, formatToolError, formatToolSuccess } from '../tools/formatting.js';
 import chalk from 'chalk';
 import { tool } from 'ai';
+import { ZodError } from 'zod';
 
 /**
  * Base configuration for Vercel AI providers
@@ -94,7 +95,7 @@ export abstract class BaseVercelAIProvider {
       parameters: toolItem.parameters,
       execute: async (args: Record<string, unknown>) => {
         return await this.executeTool(toolItem, args);
-      }
+      },
     });
   }
 
@@ -132,11 +133,22 @@ export abstract class BaseVercelAIProvider {
       // Log the error
       console.log(formatToolCall(toolCall, undefined, error));
       console.log(formatToolError(toolItem.name, String(error)));
+      if (error instanceof ZodError) {
+        return JSON.stringify({
+          result: 'error: validation failed, please fix the errors',
+          error: error.errors
+        }, null, 2);
+      }
 
       if (error instanceof Error) {
-        throw new Error(`Tool execution failed: ${error.message}`);
+        return JSON.stringify({
+          result: `error: ${error.message}`
+        }, null, 2);
       }
-      throw new Error(`Tool execution failed: ${String(error)}`);
+
+      return JSON.stringify({
+        result: `error: ${String(error)}`
+      }, null, 2);
     }
   }
 }

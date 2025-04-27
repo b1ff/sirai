@@ -67,7 +67,7 @@ export interface ImplementationDetails {
  */
 export interface Subtask {
   id: string;
-  taskSpecification: string;
+  specification: string;
   complexity: ComplexityLevel;
   llmType: LLMType;
   dependencies: string[];

@@ -34,7 +34,7 @@ export class GeneratingSummaryState implements State {
           summaryMarkdown += 'The following tasks were executed:\n\n';
           taskPlan.subtasks.forEach((subtask: Subtask, index: number) => {
             const statusIndicator = subtask.status === TaskStatus.COMPLETED ? '✅' : '⏳';
-            summaryMarkdown += `${index + 1}. ${statusIndicator} ${subtask.taskSpecification}\n`;
+            summaryMarkdown += `${index + 1}. ${statusIndicator} ${subtask.specification}\n`;
           });
         } else {
           summaryMarkdown += '_No tasks were executed._\n'; // Use italics

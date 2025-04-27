@@ -82,7 +82,6 @@ export class WaitingForInputState implements State {
               // So we need to reconstruct the full input with our file path inserted
               // Adding a space at the end ensures the caret is positioned after the file name
               const suggestion = beforeAt + '@' + file + afterPartialPath + ' ';
-              console.log(suggestion);
               return {
                 name: file,
                 value: suggestion

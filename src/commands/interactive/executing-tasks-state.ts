@@ -104,7 +104,7 @@ export class ExecutingTasksState implements State {
         markdown += '   Subtasks:\n';
         task.subtasks.forEach((subtask: Subtask) => {
           const status = subtask.status === TaskStatus.COMPLETED ? '✅' : '⏳';
-          markdown += `   - ${status} ${subtask.taskSpecification || 'Untitled Subtask'}\n`;
+          markdown += `   - ${status} ${subtask.specification || 'Untitled Subtask'}\n`;
         });
       }
       
