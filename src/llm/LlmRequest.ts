@@ -56,6 +56,11 @@ export class LlmRequest {
         return this;
     }
 
+    withTools(tools: BaseTool[]) {
+        this.tools.push(...tools);
+        return this;
+    }
+
     withUserMessage(message: string) {
         this.messages.push({role: 'user', content: message});
         return this;

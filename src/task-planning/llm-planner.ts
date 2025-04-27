@@ -6,16 +6,14 @@ import { ComplexityLevel, ContextProfile, LLMType, Subtask, TaskPlan } from './s
 import { PrePlanner } from './pre-planner.js';
 import { v4 as uuidv4 } from 'uuid';
 import {
-    StorePlanTool,
-    ListFilesTool,
-    ListDirectoriesTool,
-    ReadFileTool,
     AskUserTool,
-    RunProcessTool,
+    BaseTool,
     DelegateToModelTool,
-    BaseTool
+    ListFilesTool,
+    ReadFileTool,
+    StorePlanTool
 } from '../llm/tools/index.js';
-import inquirer from 'inquirer';
+import { LlmRequest } from '../llm/LlmRequest.js';
 
 /**
  * Configuration for the LLM planner
@@ -153,23 +151,16 @@ export class LLMPlanner {
 
         let contextString = contextProfile.createContextString();
 
-        // 3. Modify the prompt to include pre-planning results if available
-        const prompt = this.getPrompt(contextProfile, filesStructure, contextString, prePlanningResult);
+        const prompt = this.getPrompt(contextProfile, filesStructure, contextString);
 
         // 4. Generate task plan using LLM with tools
         try {
-            // Generate response using the regular LLM with streaming callback for rendering responses
-            const response = await this.llm.generate(prompt, request, {
-                tools,
-                onTokenStream: (token: string) => {
-                    // If markdown renderer is available, render the token
-                    if (this.markdownRenderer) {
-                        process.stdout.write(this.markdownRenderer.render(token));
-                    } else {
-                        process.stdout.write(token);
-                    }
-                }
-            });
+            const llmRequest = new LlmRequest()
+                .withTools(tools)
+                .withSystemPrompt(prompt)
+                .withPrompt(request);
+            this.addPrePlanningResults(llmRequest, prePlanningResult);
+            const response = await this.llm.generateFrom(llmRequest);
 
             // Get the saved plan from the tool
             const savedPlan = extractPlanTool.getSavedPlan();
@@ -180,42 +171,25 @@ export class LLMPlanner {
 
             // Transform the saved plan into a TaskPlan
             const subtasks: Subtask[] = savedPlan.subtasks.map((subtask) => {
-                // Generate ID if not provided
-                const id = subtask.id || uuidv4();
-
-                // Validate complexity
                 const complexity = this.validateComplexityLevel(subtask.complexity || 'medium');
-
-                // Validate dependencies
-                const dependencies = Array.isArray(subtask.dependencies) ? subtask.dependencies : [];
-
-                // Select LLM type based on complexity
-                const llmType = this.selectLLMTypeByComplexity(complexity);
-
-                // Include files_to_read if provided
-                const filesToRead = Array.isArray(subtask.filesToRead) ? subtask.filesToRead : [];
-
                 return {
-                    id,
+                    id: subtask.id || uuidv4(),
                     specification: subtask.specification || 'No spec provided',
                     complexity,
-                    llmType,
-                    dependencies,
-                    filesToRead
+                    llmType: this.selectLLMTypeByComplexity(complexity),
+                    dependencies: Array.isArray(subtask.dependencies) ? subtask.dependencies : [],
+                    filesToRead: Array.isArray(subtask.filesToRead) ? subtask.filesToRead : []
                 };
             });
 
-            // Validate execution order
             const executionOrder = savedPlan.executionOrder?.filter((id: string) =>
                 subtasks.some(subtask => subtask.id === id)
             ) || [];
 
-            // If execution order is empty, create a default one
             if (executionOrder.length === 0) {
                 subtasks.forEach(subtask => executionOrder.push(subtask.id));
             }
 
-            // Determine overall complexity
             const overallComplexity = savedPlan.overallComplexity || this.determineOverallComplexity(subtasks);
 
             return {
@@ -245,14 +219,39 @@ export class LLMPlanner {
         }
     }
 
+    private addPrePlanningResults(req: LlmRequest, prePlanningResult?: string | null){
+        if (this.appConfig.taskPlanning?.prePlanning?.enabled && prePlanningResult) {
+            req.withUserMessage(`
+## PRE-PLANNING ANALYSIS
+The following is an initial analysis performed by a simpler model. Use this as a starting point for your planning:
+
+ANALYSIS:
+${prePlanningResult}`);
+        }
+    }
+
+    private delegateAnalysisInstructions = `
+    If the "delegate_analysis_to_model" tool is available, you can use it to delegate analysis tasks to a smaller model. This is useful for:
+    - Analyzing file content, or its dependencies and providing summaries
+    - Extracting specific information from files
+    - Generating code snippets or suggestions based on existing code
+    - Reducing the cost of the task execution by using a cheaper model for simpler subtasks
+    - Please think on all analysis you need to make a good planning and call this tool with maximum tasks at once, rather then calling it one to one. Better to ask to analyze more during one tool call, than call it 10 times one by one.
+    Prefer to supply multiple files as input to the "delegate_analysis_to_model" tool and multiple queries. Queries will be executed one by one internally, so no quality decrease expected.
+    
+    Example of good tool call:
+    "queries": [ "Analyze file x  if it is do Y. If it does not find all the dependencies to and make analysis where Y is done and these questions", "Analyze files to understand if they are doing Y and find error Z" ]
+    
+    To use the "delegate_analysis_to_model" tool, provide an array of file paths and a query with questions or tasks. The model will read the files and respond to the query.
+    `;
+
     private getPrompt(
         contextProfile: ContextProfile, 
         filesStructure: string, 
         contextString: string,
-        prePlanningResult: string | null = null
     ) {
-        let prompt = `
-You are a task planning assistant. Your job is to analyze a user request and create a detailed, executable plan to accomplish their goal. Count that plan execution will be automated, without user involvement or intervention.
+        return `
+You are a task planning assistant. Your job is to analyze a user request and create a detailed, executable plan to achieve their goal. Count that plan execution will be automated, without user involvement or intervention.
 
 PROJECT CONTEXT:
 Current Directory: ${contextProfile.currentDirectory}
@@ -261,21 +260,7 @@ Project Root: ${contextProfile.projectRoot}
 PROJECT DIRECTORY STRUCTURE (limited depth):
 """
 ${filesStructure}
-"""`;
-
-        if (prePlanningResult) {
-            prompt += `
-
-## PRE-PLANNING ANALYSIS
-The following is an initial analysis performed by a simpler model. Use this as a starting point for your planning:
-
-ANALYSIS:
-${prePlanningResult}
-`;
-        }
-
-        // Continue with the rest of the prompt
-        prompt += `
+"""
 
 ## CONTEXT GATHERING PHASE
 First, use the provided tools to explore the project and gather essential context. Focus on:
@@ -290,27 +275,14 @@ If you need clarification from the user, use the "ask_user" tool to ask specific
 - The request is ambiguous or lacks necessary details
 - You need to confirm your understanding of requirements
 - You need to gather preferences about implementation approaches
-${this.appConfig?.askModel?.enabled ? `
-If the "delegate_analysis_to_model" tool is available, you can use it to delegate analysis tasks to a smaller model. This is useful for:
-- Analyzing file content, or its dependencies and providing summaries
-- Extracting specific information from files
-- Generating code snippets or suggestions based on existing code
-- Reducing the cost of the task execution by using a cheaper model for simpler subtasks
-- Please think on all analysis you need to make a good planning and call this tool with maximum tasks at once, rather then calling it one to one. Better to ask to analyze more during one tool call, than call it 10 times one by one.
-Prefer to supply multiple files as input to the "delegate_analysis_to_model" tool and multiple queries. Queries will be executed one by one internally, so no quality decrease expected.
 
-Example of good tool call:
-"queries": [ "Analyze file x  if it is do Y. If it does not find all the dependencies to and make analysis where Y is done and these questions", "Analyze files to understand if they are doing Y and find error Z" ]
-
-To use the "delegate_analysis_to_model" tool, provide an array of file paths and a query with questions or tasks. The model will read the files and respond to the query.
-`: ''}
+${this.appConfig?.askModel?.enabled ? this.delegateAnalysisInstructions : ''}
 
 ## TASK DECOMPOSITION PHASE
 
 ## Project specific GUIDELINES
 
 ${contextString}
-
 
 ## TASK PLANNING PHASE
 Based on the gathered context, create a precise implementation plan by breaking down the request into executable subtasks.
@@ -378,8 +350,6 @@ IT IS VERY IMPORTANT: follow "store_plan" tool scheme, do not try to call with t
 
 ONLY WHEN the plan is saved successfully, provide a concise summary of your understanding of the task and the approach you've outlined.
 `;
-
-        return prompt;
     }
 
     private getTools(contextProfile: ContextProfile) {
