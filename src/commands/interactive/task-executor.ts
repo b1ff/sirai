@@ -1,7 +1,8 @@
 import chalk from 'chalk';
-import ora from 'ora';
+import ora, { Ora } from 'ora';
 import inquirer from 'inquirer';
 import { BaseLLM } from '../../llm/base.js';
+import { LlmRequest } from '../../llm/LlmRequest.js';
 import { MarkdownRenderer } from '../../utils/markdown-renderer.js';
 import { ProjectContext } from '../../utils/project-context.js';
 import { WriteFileTool, PatchFileTool, ReadFileTool, BaseTool, ListFilesTool } from '../../llm/tools/index.js';
@@ -103,44 +104,20 @@ export class TaskExecutor {
         allowRead: boolean = false
     ): Promise<{ success: boolean; implementationDetails: ImplementationDetails }> {
         console.log(chalk.blue('\nExecuting task...'));
-
-        // Display provider and model information
         console.log(chalk.cyan(`Using ${llm.getProviderWithModel()}`));
-
-        // Create a spinner
         const spinner = ora('Thinking...').start();
         try {
-            // Get project directory
             const projectDir = (await this.projectContext.getProjectContext()).projectRoot;
+            let tools = this.createTools(projectDir, spinner, allowRead);
 
-            // Execute the task with function calling enabled
-            let tools: BaseTool[] = [
-                new PatchFileTool(projectDir),
-                new WriteFileTool(projectDir, async (filePath, content) => {
-                    spinner.stop();
-                    const { confirmation } = await inquirer.prompt<{ confirmation: string }>([
-                        {
-                            type: 'list',
-                            name: 'confirmation',
-                            message: `Do you accept write to ${filePath}?`,
-                            choices: ['Yes', 'No'],
-                            default: 'Yes'
-                        }
-                    ]);
-
-                    spinner.start("Thinking...");
-                    return confirmation === 'Yes';
-                }),
-            ];
-
-            if (allowRead) {
-                tools.push(
-                    new ListFilesTool(projectDir),
-                    new ReadFileTool(projectDir));
-            }
-            const response = await llm.generate(undefined, `${prompt}\n<user_input>${userInput}</user_input>`, {
-                tools: tools,
-            });
+            // Create LlmRequest instance
+            const llmRequest = new LlmRequest()
+                .withSystemPrompt(prompt)
+                .withUserMessage(`<user_input>${userInput}</user_input>`)
+                .withTools(tools);
+                
+            // Use generateFrom method with LlmRequest instead of direct generate call
+            const response = await llm.generateFrom(llmRequest);
 
             spinner.stop();
             console.log(chalk.green('\nTask executed successfully'));
@@ -166,6 +143,34 @@ export class TaskExecutor {
                 }
             };
         }
+    }
+
+    private createTools(projectDir: string, spinner: Ora, allowRead: boolean) {
+        let tools: BaseTool[] = [
+            new PatchFileTool(projectDir),
+            new WriteFileTool(projectDir, async (filePath, content) => {
+                spinner.stop();
+                const { confirmation } = await inquirer.prompt<{confirmation: string}>([
+                    {
+                        type: 'list',
+                        name: 'confirmation',
+                        message: `Do you accept write to ${filePath}?`,
+                        choices: ['Yes', 'No'],
+                        default: 'Yes'
+                    }
+                ]);
+
+                spinner.start("Thinking...");
+                return confirmation === 'Yes';
+            }),
+        ];
+
+        if (allowRead) {
+            tools.push(
+                new ListFilesTool(projectDir),
+                new ReadFileTool(projectDir));
+        }
+        return tools;
     }
 
     public async executeSubtasks(
@@ -235,6 +240,7 @@ export class TaskExecutor {
                     console.log(chalk.yellow(`Retrying task ${i + 1}/${orderedSubtasks.length} (Attempt ${retryCount + 1}/${maxRetries})...`));
                 }
 
+                // Use the refactored executeTask method which now uses LlmRequest
                 const result = await this.executeTask(taskPrompt, userInput, llm, subtask.id);
                 success = result.success;
                 implementationDetails = result.implementationDetails;
