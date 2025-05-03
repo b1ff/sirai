@@ -62,7 +62,7 @@ export class VercelAIAdapter extends BaseLLM {
     }
 
     async generate(systemInstructions: string | undefined, userInput: string, options?: LLMOptions): Promise<string> {
-        AITracer.getInstance().traceUserMessage(userInput);
+        AITracer.getInstance().traceUserMessage("user", userInput);
         return await this.generateInner(systemInstructions, userInput, options);
     }
 
@@ -71,15 +71,12 @@ export class VercelAIAdapter extends BaseLLM {
         let retryCount = 0;
         let lastError: unknown;
 
-        // Trace the user message explicitly
-        AITracer.getInstance().traceUserMessage(req.promptText);
+        req.combinedMessages.forEach((message) => {
+            AITracer.getInstance().traceUserMessage(message.role, message.content);
+        });
 
         while (retryCount <= MAX_RETRIES) {
             try {
-                // Trace the prompt
-                AITracer.getInstance().tracePrompt(req.systemPromptText, req.promptText);
-
-                // Use Vercel AI SDK generateText function with experimental_repairToolCall
                 const result = await generateText({
                     model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
                     toolChoice: 'auto',
@@ -105,7 +102,7 @@ export class VercelAIAdapter extends BaseLLM {
                                         type: 'tool-call',
                                         toolCallId: toolCall.toolCallId,
                                         toolName: toolCall.toolName,
-                                        args: typeof toolCall.args === 'string' ? JSON.parse(toolCall.args) : toolCall.args,
+                                        args: JSON.parse(toolCall.args),
                                     },
                                 ],
                             },
@@ -171,12 +168,11 @@ export class VercelAIAdapter extends BaseLLM {
                 } else if (retryCount === 0) {
                     // For non-rate-limit errors, try one generic retry
                     console.warn(`Error encountered. Attempting one retry...`);
-                    await this.delay(1000); // 1 second delay for generic retry
+                    await this.delay(1000);
                     retryCount++;
                     continue;
                 }
 
-                // If we've exhausted retries or it's not a retryable error, throw the last error
                 throw lastError;
             }
         }
@@ -243,8 +239,7 @@ export class VercelAIAdapter extends BaseLLM {
     ): Promise<string> {
         let fullResponse = '';
 
-        // Trace the user message explicitly
-        AITracer.getInstance().traceUserMessage(userInput);
+        AITracer.getInstance().traceUserMessage('user', userInput);
 
         try {
             // Trace the prompt
@@ -292,8 +287,7 @@ export class VercelAIAdapter extends BaseLLM {
         schema: z.ZodType<T>,
         options?: LLMOptions
     ): Promise<T> {
-        // Trace the user message explicitly
-        AITracer.getInstance().traceUserMessage(prompt);
+        AITracer.getInstance().traceUserMessage('user', prompt);
 
         try {
             // Trace the prompt
