@@ -91,7 +91,7 @@ export class TaskExecutor {
   ## IMPLEMENTATION DETAILS FORMAT
     After completing the task, provide implementation details in the last message with the following structure:
 
-        1. SUMMARY: Brief overview of what was implemented
+    1. SUMMARY: Brief overview of what was implemented
     2. FILES MODIFIED: List of all files created or modified
     3. IMPLEMENTATION DECISIONS: Any decisions made where the specification was ambiguous
     4. VERIFICATION RESULTS: Results of following the verification criteria
@@ -101,7 +101,7 @@ export class TaskExecutor {
     }
 
     public async executeTask(prompt: string, userInput: string, llm: BaseLLM, taskId: string,
-        allowRead: boolean = false
+        allowRead: boolean = true
     ): Promise<{ success: boolean; implementationDetails: ImplementationDetails }> {
         console.log(chalk.blue('\nExecuting task...'));
         console.log(chalk.cyan(`Using ${llm.getProviderWithModel()}`));
@@ -112,7 +112,7 @@ export class TaskExecutor {
 
             // Create LlmRequest instance
             const llmRequest = new LlmRequest()
-                .withSystemPrompt(prompt)
+                .withPrompt(prompt)
                 .withUserMessage(`<user_input>${userInput}</user_input>`)
                 .withTools(tools);
                 

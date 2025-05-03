@@ -14,6 +14,7 @@ import {
     StorePlanTool
 } from '../llm/tools/index.js';
 import { LlmRequest } from '../llm/LlmRequest.js';
+import { ProjectContext } from '../utils/project-context.js';
 
 /**
  * Configuration for the LLM planner
@@ -44,9 +45,17 @@ export class LLMPlanner {
     private appConfig: AppConfig;
     private llm: BaseLLM | null = null;
     private markdownRenderer?: MarkdownRenderer;
+    private projectContext?: ProjectContext;
 
 
-    constructor(appConfig: AppConfig, config: Partial<LLMPlannerConfig> | any = {}, markdownRenderer?: MarkdownRenderer) {
+    /**
+     * Constructor for LLMPlanner
+     * @param appConfig - The application configuration
+     * @param config - The planner configuration
+     * @param markdownRenderer - Optional markdown renderer for formatting output
+     * @param projectContext - Optional project context for project-specific metadata
+     */
+    constructor(appConfig: AppConfig, config: Partial<LLMPlannerConfig> | any = {}, markdownRenderer?: MarkdownRenderer, projectContext?: ProjectContext) {
         this.appConfig = appConfig;
         this.config = {
             maxContextSize: config.maxContextSize || DEFAULT_CONFIG.maxContextSize,
@@ -56,6 +65,7 @@ export class LLMPlanner {
             debug: config.debug || false
         };
         this.markdownRenderer = markdownRenderer;
+        this.projectContext = projectContext;
     }
 
     /**
@@ -109,6 +119,12 @@ export class LLMPlanner {
         return FileSystemUtils.createContextProfile(projectRoot, currentDirectory);
     }
 
+    /**
+     * Creates a task plan based on the user request and context profile
+     * @param request - The user request
+     * @param contextProfile - The context profile
+     * @returns A promise that resolves to a task plan
+     */
     async createTaskPlan(
         request: string,
         contextProfile: ContextProfile
@@ -149,7 +165,25 @@ export class LLMPlanner {
             console.warn(`[LLMPlanner] Failed to get directory structure: ${error instanceof Error ? error.message : String(error)}`);
         }
 
-        let contextString = contextProfile.createContextString();
+        // Get project-specific context if available, otherwise use the context profile's context string
+        let contextString = '';
+        try {
+            if (this.projectContext) {
+                // Get project-specific context from ProjectContext
+                contextString = await this.projectContext.createContextString();
+                console.log('[LLMPlanner] Using project-specific context from ProjectContext');
+            }
+            
+            // If we couldn't get project context or it's empty, fall back to context profile
+            if (!contextString) {
+                contextString = contextProfile.createContextString();
+                console.log('[LLMPlanner] Falling back to context profile for context string');
+            }
+        } catch (error) {
+            console.warn(`[LLMPlanner] Failed to get project context: ${error instanceof Error ? error.message : String(error)}`);
+            // Fall back to context profile's context string
+            contextString = contextProfile.createContextString();
+        }
 
         const prompt = this.getPrompt(contextProfile, filesStructure, contextString);
 
@@ -245,6 +279,13 @@ ${prePlanningResult}`);
     To use the "delegate_analysis_to_model" tool, provide an array of file paths and a query with questions or tasks. The model will read the files and respond to the query.
     `;
 
+    /**
+     * Generates the prompt for task planning with project-specific context
+     * @param contextProfile - The context profile
+     * @param filesStructure - The directory structure
+     * @param contextString - Project-specific context string
+     * @returns The prompt string
+     */
     private getPrompt(
         contextProfile: ContextProfile, 
         filesStructure: string, 
@@ -280,7 +321,7 @@ ${this.appConfig?.askModel?.enabled ? this.delegateAnalysisInstructions : ''}
 
 ## TASK DECOMPOSITION PHASE
 
-## Project specific GUIDELINES
+## PROJECT-SPECIFIC GUIDELINES AND CONTEXT
 
 ${contextString}
 

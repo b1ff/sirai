@@ -3,7 +3,7 @@ import * as path from 'path';
 
 export interface TraceEntry {
   timestamp: string;
-  type: 'prompt' | 'response' | 'tool-call' | 'tool-result' | 'error';
+  type: 'prompt' | 'user-message' | 'response' | 'tool-call' | 'tool-result' | 'error';
   content: string;
   metadata?: Record<string, any>;
 }
@@ -53,6 +53,23 @@ export class AITracer {
     };
     
     this.appendToFile(this.formatPrompt(entry));
+  }
+
+  public traceUserMessage(message: string): void {
+    if (!this.enabled) return;
+
+    const entry: TraceEntry = {
+      timestamp: new Date().toISOString(),
+      type: 'user-message',
+      content: message
+    };
+
+    this.appendToFile(this.formatUserMessage(entry));
+  }
+
+  private formatUserMessage(entry: TraceEntry): string {
+    return `## User Message (${new Date(entry.timestamp).toLocaleTimeString()})\n\n` +
+      `\`\`\`\n${this.escapeMarkdown(entry.content)}\n\`\`\`\n\n`;
   }
 
   public traceResponse(response: string): void {

@@ -8,6 +8,44 @@ import { LlmRequest } from './LlmRequest.js';
 import { handleZodError } from './tools/index.js';
 
 export class VercelAIAdapter extends BaseLLM {
+    /**
+     * Helper method to create a delay
+     * @param ms - The number of milliseconds to delay
+     * @returns A promise that resolves after the specified delay
+     */
+    private async delay(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Checks if an error is a rate limit error
+     * @param error - The error to check
+     * @returns True if the error is a rate limit error, false otherwise
+     */
+    private isRateLimitError(error: unknown): boolean {
+        // Check for HTTP 429 status code
+        if (error && typeof error === 'object') {
+            if ('status' in error && error.status === 429) {
+                return true;
+            }
+
+            // Check for error message containing rate limit keywords
+            if ('message' in error && typeof error.message === 'string') {
+                const message = error.message.toLowerCase();
+                return message.includes('rate limit') ||
+                    message.includes('too many requests') ||
+                    message.includes('quota exceeded');
+            }
+
+            // Check for error code
+            if ('code' in error && typeof error.code === 'string') {
+                const code = error.code.toLowerCase();
+                return code.includes('rate_limit') || code.includes('quota_exceeded');
+            }
+        }
+        return false;
+    }
+
     private aiProvider: BaseVercelAIProvider;
 
     constructor(config: LLMConfig & {provider: string}) {
@@ -24,96 +62,126 @@ export class VercelAIAdapter extends BaseLLM {
     }
 
     async generate(systemInstructions: string | undefined, userInput: string, options?: LLMOptions): Promise<string> {
+        AITracer.getInstance().traceUserMessage(userInput);
         return await this.generateInner(systemInstructions, userInput, options);
     }
 
-    async generateFrom(req: LlmRequest, options?: {
-        maxToolCallRepairs?: number,
-    }): Promise<string> {
-        try {
-            // Trace the prompt
-            AITracer.getInstance().tracePrompt(req.systemPromptText, req.promptText);
+    async generateFrom(req: LlmRequest): Promise<string> {
+        const MAX_RETRIES = 4;
+        let retryCount = 0;
+        let lastError: unknown;
 
-            // Use Vercel AI SDK generateText function with experimental_repairToolCall
-            const result = await generateText({
-                model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
-                toolChoice: 'auto',
-                ...this.aiProvider.adaptOptions({
-                    tools: req.toolsList
-                }),
-                messages: req.combinedMessages,
-                experimental_repairToolCall: async ({
-                    toolCall,
-                    tools,
-                    error,
-                    messages,
-                    system,
-                }) => {
-                    AITracer.getInstance().traceError(error);
+        // Trace the user message explicitly
+        AITracer.getInstance().traceUserMessage(req.promptText);
 
-                    let reRunMessages: CoreMessage[] = [
-                        ...messages,
-                        {
-                            role: 'assistant',
-                            content: [
-                                {
-                                    type: 'tool-call',
-                                    toolCallId: toolCall.toolCallId,
-                                    toolName: toolCall.toolName,
-                                    args: typeof toolCall.args === 'string' ? JSON.parse(toolCall.args) : toolCall.args,
-                                },
-                            ],
-                        },
-                        {
-                            role: 'tool' as const,
-                            content: [
-                                {
-                                    type: 'tool-result',
-                                    toolCallId: toolCall.toolCallId,
-                                    toolName: toolCall.toolName,
-                                    isError: true,
-                                    result: JSON.stringify({
-                                        message: "please re-ran with fix the following errors",
-                                        error: this.handleToolError(error)
-                                    })
-                                },
-                            ],
-                        },
-                    ];
-                    const result = await generateText({
-                        model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
-                        system,
-                        messages: reRunMessages,
+        while (retryCount <= MAX_RETRIES) {
+            try {
+                // Trace the prompt
+                AITracer.getInstance().tracePrompt(req.systemPromptText, req.promptText);
+
+                // Use Vercel AI SDK generateText function with experimental_repairToolCall
+                const result = await generateText({
+                    model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
+                    toolChoice: 'auto',
+                    ...this.aiProvider.adaptOptions({
+                        tools: req.toolsList
+                    }),
+                    messages: req.combinedMessages,
+                    experimental_repairToolCall: async ({
+                        toolCall,
                         tools,
-                    });
+                        error,
+                        messages,
+                        system,
+                    }) => {
+                        AITracer.getInstance().traceError(error);
 
-                    const newToolCall = result.toolCalls.find(
-                        newToolCall => newToolCall.toolName === toolCall.toolName,
-                    );
+                        let reRunMessages: CoreMessage[] = [
+                            ...messages,
+                            {
+                                role: 'assistant',
+                                content: [
+                                    {
+                                        type: 'tool-call',
+                                        toolCallId: toolCall.toolCallId,
+                                        toolName: toolCall.toolName,
+                                        args: typeof toolCall.args === 'string' ? JSON.parse(toolCall.args) : toolCall.args,
+                                    },
+                                ],
+                            },
+                            {
+                                role: 'tool' as const,
+                                content: [
+                                    {
+                                        type: 'tool-result',
+                                        toolCallId: toolCall.toolCallId,
+                                        toolName: toolCall.toolName,
+                                        isError: true,
+                                        result: JSON.stringify({
+                                            message: "please re-ran with fix the following errors",
+                                            error: this.handleToolError(error)
+                                        })
+                                    },
+                                ],
+                            },
+                        ];
+                        const result = await generateText({
+                            model: this.aiProvider.getModelProvider()(this.aiProvider.getModel()),
+                            system,
+                            messages: reRunMessages,
+                            tools,
+                        });
 
-                    return newToolCall != null
-                        ? {
-                            toolCallType: 'function' as const,
-                            toolCallId: toolCall.toolCallId,
-                            toolName: toolCall.toolName,
-                            args: JSON.stringify(newToolCall.args),
-                        }
-                        : null;
+                        const newToolCall = result.toolCalls.find(
+                            newToolCall => newToolCall.toolName === toolCall.toolName,
+                        );
+
+                        return newToolCall != null
+                            ? {
+                                toolCallType: 'function' as const,
+                                toolCallId: toolCall.toolCallId,
+                                toolName: toolCall.toolName,
+                                args: JSON.stringify(newToolCall.args),
+                            }
+                            : null;
+                    }
+                });
+
+                this.trackInputTokens(result.usage.promptTokens);
+                this.trackOutputTokens(result.usage.completionTokens);
+
+                // Trace the response
+                AITracer.getInstance().traceResponse(result.text);
+
+                // Extract the text from the result
+                return result.text;
+            } catch (e) {
+                AITracer.getInstance().traceError(e);
+                lastError = e;
+
+                // Check if it's a rate limit error
+                if (this.isRateLimitError(e)) {
+                    if (retryCount < MAX_RETRIES) {
+                        const delayMs = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s, 8s
+                        console.warn(`Rate limit exceeded. Retrying in ${delayMs / 1000}s... (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
+                        await this.delay(delayMs);
+                        retryCount++;
+                        continue;
+                    }
+                } else if (retryCount === 0) {
+                    // For non-rate-limit errors, try one generic retry
+                    console.warn(`Error encountered. Attempting one retry...`);
+                    await this.delay(1000); // 1 second delay for generic retry
+                    retryCount++;
+                    continue;
                 }
-            });
 
-            this.trackInputTokens(result.usage.promptTokens);
-            this.trackOutputTokens(result.usage.completionTokens);
-
-            // Trace the response
-            AITracer.getInstance().traceResponse(result.text);
-
-            // Extract the text from the result
-            return result.text;
-        } catch (e) {
-            AITracer.getInstance().traceError(e);
-            throw e;
+                // If we've exhausted retries or it's not a retryable error, throw the last error
+                throw lastError;
+            }
         }
+
+        throw lastError;
     }
 
     protected handleToolError(error: unknown): string {
@@ -164,10 +232,7 @@ export class VercelAIAdapter extends BaseLLM {
             }
         }
 
-        // Pass relevant tool repair options to generateFrom
-        return await this.generateFrom(req, {
-            maxToolCallRepairs: options?.maxToolCallRepairs
-        });
+        return await this.generateFrom(req);
     }
 
     async generateStream(
@@ -177,6 +242,9 @@ export class VercelAIAdapter extends BaseLLM {
         options?: LLMOptions
     ): Promise<string> {
         let fullResponse = '';
+
+        // Trace the user message explicitly
+        AITracer.getInstance().traceUserMessage(userInput);
 
         try {
             // Trace the prompt
@@ -224,6 +292,9 @@ export class VercelAIAdapter extends BaseLLM {
         schema: z.ZodType<T>,
         options?: LLMOptions
     ): Promise<T> {
+        // Trace the user message explicitly
+        AITracer.getInstance().traceUserMessage(prompt);
+
         try {
             // Trace the prompt
             AITracer.getInstance().tracePrompt(undefined, prompt);

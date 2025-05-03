@@ -66,7 +66,7 @@ export class ContextData {
       debug: options.debug,
       taskType: options.taskType || 'planning'
     };
-    this.taskPlanner = new LLMPlanner(config, taskPlanningConfig, this.markdownRenderer);
+    this.taskPlanner = new LLMPlanner(config, taskPlanningConfig, this.markdownRenderer, projectContext);
 
     // Create managers
     this.conversationManager = new ConversationManager(

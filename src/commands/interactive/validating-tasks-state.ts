@@ -137,7 +137,7 @@ export class ValidatingTasksState implements State {
         ${taskPlan.validationInstructions}
         ${validationCommandOutputs ? '\n\nValidation Command Results:' + validationCommandOutputs : ''}
         
-        Use the storeValidationResult tool to provide your validation with:
+        Use the store_validation_result tool to provide your validation with:
         1. status: "passed" if validation passed, "failed" if it failed
         2. message: A detailed explanation of the validation results
         3. failedTasks: If failed, list the specific tasks that failed
